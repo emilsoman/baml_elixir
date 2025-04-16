@@ -66,7 +66,7 @@ Now call the BAML function:
 # from: The path to the baml_src directory.
 # namespace: The module name under which the returned structs will be nested.
 %BamlElixir.Client{from: "priv/baml_src", namespace: "MyApp.BamlClient"}
-|> BamlElixir.Native.call(c, "ExtractResume", %{resume: "John Doe is the CTO of Acme Inc."})
+|> BamlElixir.Native.call("ExtractResume", %{resume: "John Doe is the CTO of Acme Inc."})
 ```
 
 ## Installation
