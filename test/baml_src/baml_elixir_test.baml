@@ -24,6 +24,14 @@ client Claude35Sonnet {
     }
 }
 
+client Gemini25Pro {
+  provider google-ai
+  options {
+    model "gemini-2.5-pro"
+    api_key env.GEMINI_API_KEY
+  }
+}
+
 function ExtractPerson(info: string) -> Person {
     client GPT4
     prompt #"
@@ -78,6 +86,15 @@ function WhichModel() -> Model {
 
         {{ ctx.output_format }}
     "#
+}
+
+function WhichModelUnion() -> "DeepSeek" | "GPT" {
+  client GPT4
+  prompt #"
+    Which model are you?
+
+    {{ ctx.output_format }}
+  "#
 }
 
 class DummyOutput {

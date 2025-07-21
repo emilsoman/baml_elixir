@@ -2,7 +2,9 @@ use baml_runtime::client_registry::ClientRegistry;
 use baml_runtime::tracingv2::storage::storage::Collector;
 use baml_runtime::type_builder::TypeBuilder;
 use baml_runtime::{BamlRuntime, FunctionResult, RuntimeContextManager};
-use baml_types::{BamlMap, BamlValue, FieldType, LiteralValue};
+use baml_types::ir_type::UnionTypeViewGeneric;
+use baml_types::{BamlMap, BamlValue, LiteralValue, TypeIR};
+
 use collector::{FunctionLog, Usage};
 use rustler::{
     Encoder, Env, Error, ListIterator, LocalPid, MapIterator, NifResult, NifStruct, ResourceArc,
@@ -258,12 +260,12 @@ fn prepare_request<'a>(
                             let property = cls.property(&field_name);
                             let property = property.lock().unwrap();
                             match field_type.as_str() {
-                                "string" => property.r#type(FieldType::string()),
-                                "int" => property.r#type(FieldType::int()),
-                                "float" => property.r#type(FieldType::float()),
-                                "bool" => property.r#type(FieldType::bool()),
+                                "string" => property.r#type(TypeIR::string()),
+                                "int" => property.r#type(TypeIR::int()),
+                                "float" => property.r#type(TypeIR::float()),
+                                "bool" => property.r#type(TypeIR::bool()),
                                 // TODO: handle other types and metadata as well.
-                                _ => property.r#type(FieldType::class(&field_type)),
+                                _ => property.r#type(TypeIR::class(&field_type)),
                             };
                         }
                     }
@@ -384,8 +386,14 @@ fn stream<'a>(
 
     match result {
         Ok(mut stream) => {
-            let (result, _trace_id) =
-                stream.run_sync(Some(on_event), &ctx, None, None, std::env::vars().collect());
+            let (result, _trace_id) = stream.run_sync(
+                None::<fn()>,
+                Some(on_event),
+                &ctx,
+                None,
+                None,
+                std::env::vars().collect(),
+            );
             match result {
                 Ok(r) => match r.parsed() {
                     Some(Ok(result)) => {
@@ -539,22 +547,22 @@ fn parse_baml(env: Env, path: Option<String>) -> NifResult<Term> {
     Ok(map)
 }
 
-fn to_elixir_type<'a>(env: Env<'a>, field_type: &FieldType) -> Term<'a> {
+fn to_elixir_type<'a>(env: Env<'a>, field_type: &TypeIR) -> Term<'a> {
     match field_type {
-        FieldType::Enum(name) => {
+        TypeIR::Enum { name, .. } => {
             // Return {:enum, name}
             (rustler::Atom::from_str(env, "enum").unwrap(), name).encode(env)
         }
-        FieldType::Class(name) => {
+        TypeIR::Class { name, .. } => {
             // Return {:class, name}
             (rustler::Atom::from_str(env, "class").unwrap(), name).encode(env)
         }
-        FieldType::List(inner) => {
+        TypeIR::List(inner, _) => {
             // Return {:list, inner_type}
             let inner_type = to_elixir_type(env, inner);
             (rustler::Atom::from_str(env, "list").unwrap(), inner_type).encode(env)
         }
-        FieldType::Map(key, value) => {
+        TypeIR::Map(key, value, _) => {
             // Return {:map, key_type, value_type}
             let key_type = to_elixir_type(env, key);
             let value_type = to_elixir_type(env, value);
@@ -565,7 +573,7 @@ fn to_elixir_type<'a>(env: Env<'a>, field_type: &FieldType) -> Term<'a> {
             )
                 .encode(env)
         }
-        FieldType::Primitive(r#type) => {
+        TypeIR::Primitive(r#type, _) => {
             // Return {:primitive, primitive_value}
             let primitive_value = match r#type {
                 baml_types::TypeValue::String => rustler::Atom::from_str(env, "string").unwrap(),
@@ -581,7 +589,7 @@ fn to_elixir_type<'a>(env: Env<'a>, field_type: &FieldType) -> Term<'a> {
             )
                 .encode(env)
         }
-        FieldType::Literal(value) => {
+        TypeIR::Literal(value, _) => {
             // Return {:literal, value}
             let literal_value = match value {
                 LiteralValue::String(s) => rustler::Atom::from_str(env, &s).unwrap().encode(env),
@@ -594,36 +602,44 @@ fn to_elixir_type<'a>(env: Env<'a>, field_type: &FieldType) -> Term<'a> {
             )
                 .encode(env)
         }
-        FieldType::Union(inner) => {
-            // Return {:union, list_of_types}
-            let types: Vec<Term> = inner.iter().map(|t| to_elixir_type(env, t)).collect();
-            (rustler::Atom::from_str(env, "union").unwrap(), types).encode(env)
-        }
-        FieldType::Tuple(inner) => {
+        TypeIR::Union(inner, _) => match inner.view() {
+            UnionTypeViewGeneric::Null => (atoms::nil()).encode(env),
+            UnionTypeViewGeneric::Optional(inner) => {
+                // Return {:optional, type}
+                let inner_type = to_elixir_type(env, inner);
+                (
+                    rustler::Atom::from_str(env, "optional").unwrap(),
+                    inner_type,
+                )
+                    .encode(env)
+            }
+            UnionTypeViewGeneric::OneOf(inner) => {
+                // Return {:union, list_of_types}
+                let types: Vec<Term> = inner.iter().map(|t| to_elixir_type(env, t)).collect();
+                (rustler::Atom::from_str(env, "union").unwrap(), types).encode(env)
+            }
+            UnionTypeViewGeneric::OneOfOptional(inner) => {
+                // Return {:optional, {:union, list_of_types}}
+                let types: Vec<Term> = inner.iter().map(|t| to_elixir_type(env, t)).collect();
+                (
+                    rustler::Atom::from_str(env, "optional").unwrap(),
+                    (rustler::Atom::from_str(env, "union").unwrap(), types),
+                )
+                    .encode(env)
+            }
+        },
+        TypeIR::Tuple(inner, _) => {
             // Return {:tuple, list_of_types}
             let types: Vec<Term> = inner.iter().map(|t| to_elixir_type(env, t)).collect();
             (rustler::Atom::from_str(env, "tuple").unwrap(), types).encode(env)
         }
-        FieldType::Optional(inner) => {
-            // Return {:optional, type}
-            let inner_type = to_elixir_type(env, inner);
-            (
-                rustler::Atom::from_str(env, "optional").unwrap(),
-                inner_type,
-            )
-                .encode(env)
-        }
-        FieldType::RecursiveTypeAlias(name) => {
+        TypeIR::RecursiveTypeAlias { name, .. } => {
             // Return {:alias, name}
             (rustler::Atom::from_str(env, "alias").unwrap(), name).encode(env)
         }
-        FieldType::Arrow(_) => {
+        TypeIR::Arrow(..) => {
             // Arrow types are not supported in Elixir type specs
             panic!("Arrow types are not supported in Elixir")
-        }
-        FieldType::WithMetadata { base, .. } => {
-            // For types with metadata, we use the base type
-            to_elixir_type(env, base)
         }
     }
 }

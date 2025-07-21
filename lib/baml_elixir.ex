@@ -1,5 +1,5 @@
 defmodule BamlElixir do
-  @baml_version "0.90.2"
+  @baml_version "0.202.1"
 
   def baml_version, do: @baml_version
 end

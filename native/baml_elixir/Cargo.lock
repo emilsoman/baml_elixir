@@ -123,46 +123,45 @@ checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
 name = "askama"
-version = "0.12.1"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b79091df18a97caea757e28cd2d5fda49c6cd4bd01ddffd7ff01ace0c0ad2c28"
+checksum = "f75363874b771be265f4ffe307ca705ef6f3baa19011c149da8674a87f1b75c4"
 dependencies = [
  "askama_derive",
- "askama_escape",
- "humansize",
- "num-traits",
+ "itoa",
  "percent-encoding",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
 name = "askama_derive"
-version = "0.12.5"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19fe8d6cb13c4714962c072ea496f3392015f0989b1a2847bb4b2d9effd71d83"
+checksum = "129397200fe83088e8a68407a8e2b1f826cf0086b21ccdb866a722c8bcd3a94f"
 dependencies = [
  "askama_parser",
  "basic-toml",
- "mime",
- "mime_guess",
+ "memchr",
  "proc-macro2",
+ "pulldown-cmark",
  "quote",
+ "rustc-hash 2.1.1",
  "serde",
+ "serde_derive",
  "syn 2.0.100",
 ]
 
 [[package]]
-name = "askama_escape"
-version = "0.10.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "619743e34b5ba4e9703bba34deac3427c72507c7159f5fd030aea8cac0cfe341"
-
-[[package]]
 name = "askama_parser"
-version = "0.2.1"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acb1161c6b64d1c3d83108213c2a2533a342ac225aabd0bda218278c2ddb00c0"
+checksum = "d6ab5630b3d5eaf232620167977f95eb51f3432fc76852328774afbd242d4358"
 dependencies = [
- "nom",
+ "memchr",
+ "serde",
+ "serde_derive",
+ "winnow",
 ]
 
 [[package]]
@@ -814,7 +813,7 @@ dependencies = [
 
 [[package]]
 name = "baml-derive"
-version = "0.90.2"
+version = "0.202.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -828,13 +827,14 @@ dependencies = [
  "anyhow",
  "serde",
  "serde_json",
+ "time",
  "type-safe-id",
  "uuid",
 ]
 
 [[package]]
 name = "baml-log"
-version = "0.90.2"
+version = "0.202.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -862,7 +862,7 @@ dependencies = [
  "futures",
  "http 1.3.1",
  "http-body 1.0.1",
- "indexmap",
+ "indexmap 2.9.0",
  "indoc",
  "log",
  "num",
@@ -871,6 +871,7 @@ dependencies = [
  "scopeguard",
  "serde",
  "serde_json",
+ "serde_with",
  "static_assertions",
  "strsim 0.11.1",
  "strum",
@@ -884,7 +885,7 @@ dependencies = [
 
 [[package]]
 name = "baml-runtime"
-version = "0.90.2"
+version = "0.202.1"
 dependencies = [
  "anyhow",
  "async-std",
@@ -925,11 +926,13 @@ dependencies = [
  "futures",
  "futures-timer",
  "gcp_auth",
+ "generators-lib",
+ "generators-openapi",
  "hostname",
  "http 1.3.1",
  "http-body 1.0.1",
  "include_dir",
- "indexmap",
+ "indexmap 2.9.0",
  "indicatif",
  "indoc",
  "infer",
@@ -991,13 +994,13 @@ dependencies = [
 
 [[package]]
 name = "baml-types"
-version = "0.90.2"
+version = "0.202.1"
 dependencies = [
  "anyhow",
  "baml-ids",
  "clap",
  "derive_builder",
- "indexmap",
+ "indexmap 2.9.0",
  "internal-baml-diagnostics",
  "itertools 0.14.0",
  "log",
@@ -1090,7 +1093,7 @@ dependencies = [
 
 [[package]]
 name = "bstd"
-version = "0.90.2"
+version = "0.202.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1103,7 +1106,7 @@ dependencies = [
  "futures",
  "http 1.3.1",
  "http-body 1.0.1",
- "indexmap",
+ "indexmap 2.9.0",
  "indoc",
  "log",
  "num",
@@ -1539,6 +1542,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c9e6a11ca8224451684bc0d7d5a7adbf8f2fd6887261a1cfc3c0432f9d4068e"
 dependencies = [
  "powerfmt",
+ "serde",
 ]
 
 [[package]]
@@ -1625,6 +1629,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "dir-writer"
+version = "0.202.1"
+dependencies = [
+ "anyhow",
+ "baml-log",
+ "cfg-if",
+ "filetime",
+ "indexmap 2.9.0",
+ "internal-baml-core",
+ "pathdiff",
+ "serde_json",
+ "sugar_path",
+ "walkdir",
+]
+
+[[package]]
 name = "displaydoc"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1640,6 +1660,12 @@ name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
+
+[[package]]
+name = "dyn-clone"
+version = "1.0.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c7a8fb8a9fbf66c1f703fe16184d10ca0ee9d23be5b4436400408ba54a95005"
 
 [[package]]
 name = "either"
@@ -1986,6 +2012,85 @@ dependencies = [
 ]
 
 [[package]]
+name = "generators-go"
+version = "0.202.1"
+dependencies = [
+ "anyhow",
+ "askama",
+ "baml-types",
+ "dir-writer",
+ "internal-baml-core",
+]
+
+[[package]]
+name = "generators-lib"
+version = "0.202.1"
+dependencies = [
+ "anyhow",
+ "baml-log",
+ "dir-writer",
+ "generators-go",
+ "generators-openapi",
+ "generators-python",
+ "generators-ruby",
+ "generators-typescript",
+ "indexmap 2.9.0",
+ "internal-baml-core",
+ "serde_json",
+]
+
+[[package]]
+name = "generators-openapi"
+version = "0.202.1"
+dependencies = [
+ "anyhow",
+ "askama",
+ "baml-types",
+ "dir-writer",
+ "index-map",
+ "indexmap 2.9.0",
+ "internal-baml-core",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+]
+
+[[package]]
+name = "generators-python"
+version = "0.202.1"
+dependencies = [
+ "anyhow",
+ "askama",
+ "baml-types",
+ "dir-writer",
+ "internal-baml-core",
+]
+
+[[package]]
+name = "generators-ruby"
+version = "0.202.1"
+dependencies = [
+ "anyhow",
+ "askama",
+ "baml-types",
+ "dir-writer",
+ "internal-baml-core",
+]
+
+[[package]]
+name = "generators-typescript"
+version = "0.202.1"
+dependencies = [
+ "anyhow",
+ "askama",
+ "baml-types",
+ "dir-writer",
+ "indexmap 2.9.0",
+ "internal-baml-core",
+ "regex",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2062,7 +2167,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http 0.2.12",
- "indexmap",
+ "indexmap 2.9.0",
  "slab",
  "tokio",
  "tokio-util",
@@ -2081,7 +2186,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "http 1.3.1",
- "indexmap",
+ "indexmap 2.9.0",
  "slab",
  "tokio",
  "tokio-util",
@@ -2097,6 +2202,12 @@ dependencies = [
  "cfg-if",
  "crunchy",
 ]
+
+[[package]]
+name = "hashbrown"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 
 [[package]]
 name = "hashbrown"
@@ -2260,15 +2371,6 @@ name = "httpdate"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
-
-[[package]]
-name = "humansize"
-version = "2.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cb51c9a029ddc91b07a787f1d86b53ccfa49b0e86688c946ebe8d3555685dd7"
-dependencies = [
- "libm",
-]
 
 [[package]]
 name = "hyper"
@@ -2574,6 +2676,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "index-map"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ea06ad425513b4cac7d2a1b3fc36b518281e74a96b9739d9a34e7a4151dbb48"
+
+[[package]]
+name = "indexmap"
+version = "1.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
+dependencies = [
+ "autocfg",
+ "hashbrown 0.12.3",
+ "serde",
+]
+
+[[package]]
 name = "indexmap"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2633,160 +2752,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "internal-baml-codegen"
-version = "0.90.2"
-dependencies = [
- "anyhow",
- "askama",
- "baml-log",
- "baml-types",
- "base64 0.22.1",
- "cfg-if",
- "colored",
- "either",
- "env_logger",
- "filetime",
- "indexmap",
- "internal-baml-core",
- "itertools 0.13.0",
- "log",
- "pathdiff",
- "regex",
- "semver",
- "serde",
- "serde_json",
- "serde_yaml",
- "sugar_path",
- "walkdir",
-]
-
-[[package]]
-name = "internal-baml-core"
-version = "0.90.2"
-dependencies = [
- "anyhow",
- "baml-derive",
- "baml-rpc",
- "baml-types",
- "bstd",
- "chrono",
- "derive_builder",
- "either",
- "enumflags2",
- "indexmap",
- "internal-baml-diagnostics",
- "internal-baml-jinja-types",
- "internal-baml-parser-database",
- "internal-baml-prompt-parser",
- "internal-baml-schema-ast",
- "internal-llm-client",
- "itertools 0.13.0",
- "log",
- "minijinja",
- "rayon",
- "regex",
- "semver",
- "serde",
- "serde_json",
- "shellwords",
- "strsim 0.10.0",
- "strum",
- "textwrap",
- "whoami",
-]
-
-[[package]]
-name = "internal-baml-diagnostics"
-version = "0.90.2"
-dependencies = [
- "anyhow",
- "colored",
- "indoc",
- "log",
- "pest",
- "serde",
- "strsim 0.10.0",
-]
-
-[[package]]
-name = "internal-baml-jinja"
-version = "0.90.2"
-dependencies = [
- "anyhow",
- "askama",
- "baml-types",
- "colored",
- "indexmap",
- "internal-baml-core",
- "internal-baml-diagnostics",
- "internal-baml-jinja-types",
- "log",
- "minijinja",
- "serde",
- "serde_json",
- "strsim 0.11.1",
- "strum",
-]
-
-[[package]]
-name = "internal-baml-jinja-types"
-version = "0.90.2"
-dependencies = [
- "anyhow",
- "askama",
- "baml-types",
- "colored",
- "indexmap",
- "log",
- "minijinja",
- "regex",
- "serde",
- "serde_json",
- "strsim 0.11.1",
- "strum",
-]
-
-[[package]]
-name = "internal-baml-parser-database"
-version = "0.90.2"
-dependencies = [
- "anyhow",
- "baml-derive",
- "baml-types",
- "colored",
- "either",
- "enumflags2",
- "indexmap",
- "internal-baml-diagnostics",
- "internal-baml-jinja-types",
- "internal-baml-prompt-parser",
- "internal-baml-schema-ast",
- "internal-llm-client",
- "itertools 0.13.0",
- "log",
- "ouroboros",
- "regex",
- "rustc-hash",
- "serde",
- "serde_json",
- "textwrap",
-]
-
-[[package]]
-name = "internal-baml-prompt-parser"
-version = "0.90.2"
-dependencies = [
- "internal-baml-diagnostics",
- "internal-baml-schema-ast",
- "log",
- "pest",
- "pest_derive",
- "textwrap",
-]
-
-[[package]]
-name = "internal-baml-schema-ast"
-version = "0.90.2"
+name = "internal-baml-ast"
+version = "0.202.1"
 dependencies = [
  "anyhow",
  "baml-types",
@@ -2804,8 +2771,162 @@ dependencies = [
 ]
 
 [[package]]
+name = "internal-baml-codegen"
+version = "0.202.1"
+dependencies = [
+ "anyhow",
+ "askama",
+ "baml-log",
+ "baml-types",
+ "base64 0.22.1",
+ "cfg-if",
+ "colored",
+ "either",
+ "env_logger",
+ "filetime",
+ "generators-lib",
+ "indexmap 2.9.0",
+ "internal-baml-core",
+ "itertools 0.13.0",
+ "log",
+ "pathdiff",
+ "regex",
+ "semver",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sugar_path",
+ "walkdir",
+]
+
+[[package]]
+name = "internal-baml-core"
+version = "0.202.1"
+dependencies = [
+ "anyhow",
+ "baml-derive",
+ "baml-rpc",
+ "baml-types",
+ "bstd",
+ "chrono",
+ "derive_builder",
+ "either",
+ "enumflags2",
+ "indexmap 2.9.0",
+ "internal-baml-ast",
+ "internal-baml-diagnostics",
+ "internal-baml-jinja-types",
+ "internal-baml-parser-database",
+ "internal-baml-prompt-parser",
+ "internal-llm-client",
+ "itertools 0.13.0",
+ "log",
+ "minijinja",
+ "once_cell",
+ "rayon",
+ "regex",
+ "semver",
+ "serde",
+ "serde_json",
+ "shellwords",
+ "strsim 0.10.0",
+ "strum",
+ "textwrap",
+ "whoami",
+]
+
+[[package]]
+name = "internal-baml-diagnostics"
+version = "0.202.1"
+dependencies = [
+ "anyhow",
+ "colored",
+ "indoc",
+ "log",
+ "pest",
+ "serde",
+ "strsim 0.10.0",
+]
+
+[[package]]
+name = "internal-baml-jinja"
+version = "0.202.1"
+dependencies = [
+ "anyhow",
+ "askama",
+ "baml-types",
+ "colored",
+ "indexmap 2.9.0",
+ "internal-baml-core",
+ "internal-baml-diagnostics",
+ "internal-baml-jinja-types",
+ "log",
+ "minijinja",
+ "serde",
+ "serde_json",
+ "strsim 0.11.1",
+ "strum",
+]
+
+[[package]]
+name = "internal-baml-jinja-types"
+version = "0.202.1"
+dependencies = [
+ "anyhow",
+ "askama",
+ "baml-types",
+ "colored",
+ "indexmap 2.9.0",
+ "log",
+ "minijinja",
+ "regex",
+ "serde",
+ "serde_json",
+ "strsim 0.11.1",
+ "strum",
+]
+
+[[package]]
+name = "internal-baml-parser-database"
+version = "0.202.1"
+dependencies = [
+ "anyhow",
+ "baml-derive",
+ "baml-types",
+ "colored",
+ "either",
+ "enumflags2",
+ "indexmap 2.9.0",
+ "internal-baml-ast",
+ "internal-baml-diagnostics",
+ "internal-baml-jinja-types",
+ "internal-baml-prompt-parser",
+ "internal-llm-client",
+ "itertools 0.13.0",
+ "log",
+ "ouroboros",
+ "regex",
+ "rustc-hash 1.1.0",
+ "serde",
+ "serde_json",
+ "textwrap",
+]
+
+[[package]]
+name = "internal-baml-prompt-parser"
+version = "0.202.1"
+dependencies = [
+ "internal-baml-ast",
+ "internal-baml-diagnostics",
+ "log",
+ "pest",
+ "pest_derive",
+ "textwrap",
+]
+
+[[package]]
 name = "internal-llm-client"
-version = "0.90.2"
+version = "0.202.1"
 dependencies = [
  "anyhow",
  "aws-config",
@@ -2814,7 +2935,7 @@ dependencies = [
  "derive_more",
  "either",
  "enum_dispatch",
- "indexmap",
+ "indexmap 2.9.0",
  "log",
  "secrecy",
  "serde",
@@ -2928,14 +3049,14 @@ checksum = "9dbbfed4e59ba9750e15ba154fdfd9329cee16ff3df539c2666b70f58cc32105"
 
 [[package]]
 name = "jsonish"
-version = "0.90.2"
+version = "0.202.1"
 dependencies = [
  "anyhow",
  "baml-types",
  "bstd",
  "colored",
  "either",
- "indexmap",
+ "indexmap 2.9.0",
  "indoc",
  "internal-baml-core",
  "internal-baml-jinja",
@@ -3026,12 +3147,6 @@ dependencies = [
  "cfg-if",
  "windows-targets 0.52.6",
 ]
-
-[[package]]
-name = "libm"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8355be11b20d696c8f18f6cc018c4e372165b1fa8126cef092399c9951984ffa"
 
 [[package]]
 name = "libredox"
@@ -3140,7 +3255,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd72e8b4e42274540edabec853f607c015c73436159b06c39c7af85a20433155"
 dependencies = [
  "aho-corasick",
- "indexmap",
+ "indexmap 2.9.0",
  "serde",
  "serde_json",
  "unicase",
@@ -3527,9 +3642,9 @@ checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
 name = "pest"
-version = "2.8.0"
+version = "2.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "198db74531d58c70a361c42201efde7e2591e976d518caf7662a47dc5720e7b6"
+checksum = "1db05f56d34358a8b1066f67cbb203ee3e7ed2ba674a6263a1d5ec6db2204323"
 dependencies = [
  "memchr",
  "thiserror 2.0.12",
@@ -3538,9 +3653,9 @@ dependencies = [
 
 [[package]]
 name = "pest_derive"
-version = "2.8.0"
+version = "2.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d725d9cfd79e87dccc9341a2ef39d1b6f6353d68c4b33c177febbe1a402c97c5"
+checksum = "bb056d9e8ea77922845ec74a1c4e8fb17e7c218cc4fc11a15c5d25e189aa40bc"
 dependencies = [
  "pest",
  "pest_generator",
@@ -3548,9 +3663,9 @@ dependencies = [
 
 [[package]]
 name = "pest_generator"
-version = "2.8.0"
+version = "2.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db7d01726be8ab66ab32f9df467ae8b1148906685bbe75c82d1e65d7f5b3f841"
+checksum = "87e404e638f781eb3202dc82db6760c8ae8a1eeef7fb3fa8264b2ef280504966"
 dependencies = [
  "pest",
  "pest_meta",
@@ -3561,11 +3676,10 @@ dependencies = [
 
 [[package]]
 name = "pest_meta"
-version = "2.8.0"
+version = "2.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f9f832470494906d1fca5329f8ab5791cc60beb230c74815dff541cbd2b5ca0"
+checksum = "edd1101f170f5903fde0914f899bb503d9ff5271d7ba76bbb70bea63690cc0d5"
 dependencies = [
- "once_cell",
  "pest",
  "sha2",
 ]
@@ -3736,6 +3850,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pulldown-cmark"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e8bbe1a966bd2f362681a44f6edce3c2310ac21e4d5067a6e7ec396297a6ea0"
+dependencies = [
+ "bitflags 2.9.0",
+ "memchr",
+ "unicase",
+]
+
+[[package]]
 name = "quick-xml"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3816,6 +3941,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2f103c6d277498fbceb16e84d317e2a400f160f46904d5f5410848c829511a3"
 dependencies = [
  "bitflags 2.9.0",
+]
+
+[[package]]
+name = "ref-cast"
+version = "1.0.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a0ae411dbe946a674d89546582cea4ba2bb8defac896622d6496f14c23ba5cf"
+dependencies = [
+ "ref-cast-impl",
+]
+
+[[package]]
+name = "ref-cast-impl"
+version = "1.0.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1165225c21bff1f3bbce98f5a1f889949bc902d3575308cc7b0de30b4f6d27c7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -3955,6 +4100,12 @@ name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
+
+[[package]]
+name = "rustc-hash"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
 
 [[package]]
 name = "rustc_version"
@@ -4142,6 +4293,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "schemars"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cd191f9397d57d581cddd31014772520aa448f65ef991055d7f61582c65165f"
+dependencies = [
+ "dyn-clone",
+ "ref-cast",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "schemars"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82d20c4491bc164fa2f6c5d44565947a52ad80b9505d8e36f8d54c27c739fcd0"
+dependencies = [
+ "dyn-clone",
+ "ref-cast",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4261,7 +4436,7 @@ version = "1.0.140"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20068b6e96dc6c9bd23e01df8827e6c7e1f2fddd43c21810382803c136b99373"
 dependencies = [
- "indexmap",
+ "indexmap 2.9.0",
  "itoa",
  "memchr",
  "ryu",
@@ -4300,12 +4475,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_with"
+version = "3.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2c45cd61fefa9db6f254525d46e392b852e0e61d9a1fd36e5bd183450a556d5"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "hex",
+ "indexmap 1.9.3",
+ "indexmap 2.9.0",
+ "schemars 0.9.0",
+ "schemars 1.0.4",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_with_macros",
+ "time",
+]
+
+[[package]]
+name = "serde_with_macros"
+version = "3.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de90945e6565ce0d9a25098082ed4ee4002e047cb59892c318d66821e14bb30f"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
+]
+
+[[package]]
 name = "serde_yaml"
 version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
 dependencies = [
- "indexmap",
+ "indexmap 2.9.0",
  "itoa",
  "ryu",
  "serde",
@@ -4928,20 +5135,20 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "ts-rs"
-version = "10.1.0"
+version = "11.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e640d9b0964e9d39df633548591090ab92f7a4567bc31d3891af23471a3365c6"
+checksum = "6ef1b7a6d914a34127ed8e1fa927eb7088903787bcded4fa3eef8f85ee1568be"
 dependencies = [
- "lazy_static",
+ "indexmap 2.9.0",
  "thiserror 2.0.12",
  "ts-rs-macros",
 ]
 
 [[package]]
 name = "ts-rs-macros"
-version = "10.1.0"
+version = "11.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e9d8656589772eeec2cf7a8264d9cda40fb28b9bc53118ceb9e8c07f8f38730"
+checksum = "e9d4ed7b4c18cc150a6a0a1e9ea1ecfa688791220781af6e119f9599a8502a0a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5588,6 +5795,15 @@ name = "windows_x86_64_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
+
+[[package]]
+name = "winnow"
+version = "0.7.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3edebf492c8125044983378ecb5766203ad3b4c2f7a922bd7dd207f6d443e95"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "winsafe"

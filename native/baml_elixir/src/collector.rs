@@ -125,7 +125,7 @@ impl Encoder for LLMCall {
                         .unwrap()
                         .map_put("url", r.url.clone())
                         .unwrap()
-                        .map_put("headers", r.headers.clone())
+                        .map_put("headers", r.headers().clone())
                         .unwrap()
                         .map_put("body", r.body.text().unwrap_or_default().encode(env))
                         .unwrap()
@@ -138,7 +138,7 @@ impl Encoder for LLMCall {
                     let map = Term::map_new(env);
                     map.map_put("status", r.status.clone())
                         .unwrap()
-                        .map_put("headers", r.headers.clone())
+                        .map_put("headers", r.headers())
                         .unwrap()
                         .map_put("body", r.body.text().unwrap_or_default().encode(env))
                         .unwrap()
@@ -158,9 +158,9 @@ impl Encoder for LLMCall {
 impl Encoder for LLMStreamCall {
     fn encode<'a>(&self, env: Env<'a>) -> Term<'a> {
         let map = Term::map_new(env);
-        map.map_put("client_name", self.inner.client_name.clone())
+        map.map_put("client_name", self.inner.llm_call.client_name.clone())
             .unwrap()
-            .map_put("provider", self.inner.provider.clone())
+            .map_put("provider", self.inner.llm_call.provider.clone())
             .unwrap()
             .map_put(
                 "timing",
@@ -171,13 +171,26 @@ impl Encoder for LLMStreamCall {
             .unwrap()
             .map_put(
                 "request",
-                self.inner.request.as_deref().map(|r| {
+                self.inner.llm_call.request.as_deref().map(|r| {
                     let map = Term::map_new(env);
                     map.map_put("method", r.method.clone())
                         .unwrap()
                         .map_put("url", r.url.clone())
                         .unwrap()
-                        .map_put("headers", r.headers.clone())
+                        .map_put("headers", r.headers())
+                        .unwrap()
+                }),
+            )
+            .unwrap()
+            .map_put(
+                "response",
+                self.inner.llm_call.response.as_deref().map(|r| {
+                    let map = Term::map_new(env);
+                    map.map_put("status", r.status.clone())
+                        .unwrap()
+                        .map_put("headers", r.headers())
+                        .unwrap()
+                        .map_put("body", r.body.text().unwrap_or_default().encode(env))
                         .unwrap()
                 }),
             )
@@ -185,7 +198,7 @@ impl Encoder for LLMStreamCall {
             .map_put(
                 "usage",
                 Usage {
-                    inner: self.inner.usage.clone().unwrap_or_default(),
+                    inner: self.inner.llm_call.usage.clone().unwrap_or_default(),
                 },
             )
             .unwrap()

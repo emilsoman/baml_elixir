@@ -46,6 +46,13 @@ defmodule BamlElixirTest do
     assert BamlElixirTest.WhichModel.call(%{}, %{llm_client: "DeepSeekR1"}) == {:ok, :DeepSeekR1}
   end
 
+  test "get union type" do
+    assert BamlElixirTest.WhichModelUnion.call(%{}, %{llm_client: "GPT4"}) == {:ok, "GPT"}
+
+    assert BamlElixirTest.WhichModelUnion.call(%{}, %{llm_client: "DeepSeekR1"}) ==
+             {:ok, "DeepSeek"}
+  end
+
   test "Error when parsing the output of a function" do
     assert {:error, "Failed to coerce value" <> _} = BamlElixirTest.DummyOutputFunction.call(%{})
   end
@@ -59,6 +66,22 @@ defmodule BamlElixirTest do
     usage = BamlElixir.Collector.usage(collector)
     assert usage["input_tokens"] == 33
     assert usage["output_tokens"] > 0
+  end
+
+  test "get usage from collector with streaming using GPT4" do
+    collector = BamlElixir.Collector.new("test-collector")
+    pid = self()
+
+    BamlElixirTest.CreateEmployee.stream(
+      %{},
+      fn result -> send(pid, result) end,
+      %{llm_client: "GPT4", collectors: [collector]}
+    )
+
+    _messages = wait_for_all_messages()
+
+    usage = BamlElixir.Collector.usage(collector)
+    assert usage["input_tokens"] == 32
   end
 
   test "get last function log from collector" do
