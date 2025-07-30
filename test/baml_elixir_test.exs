@@ -55,7 +55,7 @@ defmodule BamlElixirTest do
              })
   end
 
-  test "parses into a list of maps using type builder" do
+  test "parses type builder with nested types" do
     assert {:ok,
             %{
               __baml_class__: "NewEmployeeFullyDynamic",
@@ -65,7 +65,8 @@ defmodule BamlElixirTest do
                 name: _,
                 age: _,
                 departments: list_of_deps,
-                managers: list_of_managers
+                managers: list_of_managers,
+                work_experience: work_exp_map
               }
             } = employee} =
              BamlElixirTest.CreateEmployee.call(%{}, %{
@@ -75,7 +76,8 @@ defmodule BamlElixirTest do
                      "name" => :string,
                      "age" => :int,
                      "departments" => [%{"name" => :string, "location" => :string}],
-                     "managers" => [:string]
+                     "managers" => [:string],
+                     "work_experience" => {:map, :string, :string}
                    }
                  }
                }
@@ -85,10 +87,12 @@ defmodule BamlElixirTest do
              Enum.sort([:__baml_class__, :employee_id, :person])
 
     assert Enum.sort(Map.keys(employee.person)) ==
-             Enum.sort([:__baml_class__, :name, :age, :departments, :managers])
+             Enum.sort([:__baml_class__, :name, :age, :departments, :managers, :work_experience])
 
     assert is_list(list_of_deps)
     assert is_list(list_of_managers)
+    assert is_map(work_exp_map)
+    assert Enum.all?(work_exp_map, fn {key, value} -> is_binary(key) and is_binary(value) end)
   end
 
   test "change default model" do

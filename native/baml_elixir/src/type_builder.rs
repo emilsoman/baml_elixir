@@ -113,6 +113,25 @@ fn parse_field_type<'a>(
         Ok(TypeIR::literal(LiteralValue::Bool(bool_value)))
     } else if term.is_tuple() {
         // Handle tuple-based types like {:class, "TestPerson"}, {:union, ["alive", "dead"]}, {:enum, "FavoriteColor"}
+        // First, try to decode as a 3-tuple for map types
+        if let Ok((atom, key_type_term, value_type_term)) =
+            term.decode::<(rustler::Atom, Term, Term)>()
+        {
+            let atom_str = atom
+                .encode(env)
+                .atom_to_string()
+                .map_err(|_| Error::Term(Box::new("Invalid atom")))?;
+
+            if atom_str == "map" {
+                let key_type =
+                    parse_field_type(env, key_type_term, builder, parent_class, field_name)?;
+                let value_type =
+                    parse_field_type(env, value_type_term, builder, parent_class, field_name)?;
+                return Ok(TypeIR::map(key_type, value_type));
+            }
+        }
+
+        // Handle 2-tuple types like {:class, "TestPerson"}, {:union, ["alive", "dead"]}, {:enum, "FavoriteColor"}
         let tuple: (rustler::Atom, Term) = term.decode()?;
         let atom_str = tuple
             .0
