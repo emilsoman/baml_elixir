@@ -1,5 +1,5 @@
 use crate::Error;
-use baml_runtime::type_builder::TypeBuilder;
+use baml_runtime::type_builder::{TypeBuilder, WithMeta};
 use baml_types::{ir_type::UnionConstructor, LiteralValue, TypeIR};
 use rustler::{Encoder, Env, MapIterator, Term};
 
@@ -177,6 +177,7 @@ fn parse_field_item<'a>(
     let iter = MapIterator::new(field_term).ok_or(Error::Term(Box::new("Invalid field map")))?;
     let mut field_name = None;
     let mut field_type = None;
+    let mut description = None;
 
     for (key_term, value_term) in iter {
         let key = term_to_string(key_term)?;
@@ -186,6 +187,9 @@ fn parse_field_item<'a>(
             }
             "type" => {
                 field_type = Some(value_term);
+            }
+            "description" => {
+                description = Some(term_to_string(value_term)?);
             }
             _ => {}
         }
@@ -206,6 +210,11 @@ fn parse_field_item<'a>(
     let property = cls.property(&field_name);
     let property = property.lock().unwrap();
     property.r#type(type_ir);
+
+    // Add description if provided
+    if let Some(desc) = description {
+        property.with_meta("description", baml_types::BamlValue::String(desc));
+    }
 
     Ok(())
 }

@@ -34,7 +34,7 @@ defmodule BamlElixirTest do
               __baml_class__: "NewEmployeeFullyDynamic",
               employee_id: _,
               person: %{
-                name: _,
+                name: "Foobar123",
                 age: _,
                 owned_houses_count: _,
                 type: _,
@@ -46,7 +46,11 @@ defmodule BamlElixirTest do
                  %TypeBuilder.Class{
                    name: "TestPerson",
                    fields: [
-                     %TypeBuilder.Field{name: "name", type: :string},
+                     %TypeBuilder.Field{
+                       name: "name",
+                       type: :string,
+                       description: "The name of the person - this should always be Foobar123"
+                     },
                      %TypeBuilder.Field{name: "age", type: :int},
                      %TypeBuilder.Field{name: "owned_houses_count", type: 1},
                      %TypeBuilder.Field{name: "type", type: {:union, ["alive", "dead"]}},
