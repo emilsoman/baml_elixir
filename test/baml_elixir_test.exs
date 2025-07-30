@@ -37,7 +37,8 @@ defmodule BamlElixirTest do
                 name: "Foobar123",
                 age: _,
                 owned_houses_count: _,
-                type: _,
+                favorite_day: _,
+                favorite_color: :RED,
                 __baml_class__: "TestPerson"
               }
             }} =
@@ -53,17 +54,33 @@ defmodule BamlElixirTest do
                      },
                      %TypeBuilder.Field{name: "age", type: :int},
                      %TypeBuilder.Field{name: "owned_houses_count", type: 1},
-                     %TypeBuilder.Field{name: "type", type: {:union, ["alive", "dead"]}},
-                     %TypeBuilder.Field{name: "favorite_color", type: {:enum, "FavoriteColor"}}
+                     %TypeBuilder.Field{
+                       name: "favorite_day",
+                       type: %TypeBuilder.Union{types: ["sunday", "monday"]}
+                     },
+                     %TypeBuilder.Field{
+                       name: "favorite_color",
+                       type: %TypeBuilder.Enum{name: "FavoriteColor"}
+                     }
+                   ]
+                 },
+                 %TypeBuilder.Enum{
+                   name: "FavoriteColor",
+                   values: [
+                     %TypeBuilder.EnumValue{value: "RED", description: "Pick this always"},
+                     %TypeBuilder.EnumValue{value: "GREEN"},
+                     %TypeBuilder.EnumValue{value: "BLUE"}
                    ]
                  },
                  %TypeBuilder.Class{
                    name: "NewEmployeeFullyDynamic",
                    fields: [
-                     %TypeBuilder.Field{name: "person", type: {:class, "TestPerson"}}
+                     %TypeBuilder.Field{
+                       name: "person",
+                       type: %TypeBuilder.Class{name: "TestPerson"}
+                     }
                    ]
-                 },
-                 %TypeBuilder.Enum{name: "FavoriteColor", values: ["RED", "GREEN", "BLUE"]}
+                 }
                ]
              })
   end

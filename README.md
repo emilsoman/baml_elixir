@@ -151,24 +151,9 @@ MyApp.BamlClient.WhichModel.call(%{}, %{
 
 You can provide a type builder to dynamically define types at runtime. This is useful for classes with `@@dynamic` attributes or when you need to create types that aren't defined in your BAML files.
 
-The type builder is a map where:
+The type builder is a list of TypeBuilder structs:
 
-- **Keys** are tuples: `{:class, "ClassName"}` or `{:enum, "EnumName"}`
-- **Values** define the structure:
-  - For classes: a map of field names to their types
-  - For enums: a list of string values
-
-#### Supported Type Formats
-
-- **Primitive types**: `:string`, `:int`, `:float`, `:boolean`
-- **Class references**: `{:class, "ClassName"}`
-- **Enum references**: `{:enum, "EnumName"}`
-- **Lists**: `[:string]` or `[{:class, "ClassName"}]`
-- **Maps**: `{:map, :string, :string}` (key_type, value_type)
-- **Unions**: `{:union, ["option1", "option2"]}`
-- **Literals**: `1`, `"fixed_value"`
-
-#### Examples
+#### Example
 
 Given this BAML file:
 
@@ -180,38 +165,51 @@ class DynamicEmployee {
 ```
 
 ```elixir
-MyApp.BamlClient.CreateEmployee.call(%{}, %{
-  tb: %{
-    {:class, "DynamicEmployee"} => %{
-      "person" => %{
-        "name" => :string,
-        "age" => :int,
-        "departments" => [%{"name" => :string, "location" => :string}],
-        "managers" => [:string],
-        "work_experience" => {:map, :string, :string}
-      }
-    }
-  }
-})
-
-# Returns:
-{:ok, %{
+{:ok,
+%{
   __baml_class__: "DynamicEmployee",
-  employee_id: "EMP123456", # This is not dynamic and defined in the BAML file
+  employee_id: _,
   person: %{
-    name: "Alice Johnson",
-    age: 29,
-    departments: [
-      %{"name" => "Marketing", "location" => "New York"},
-      %{"name" => "Sales", "location" => "San Francisco"}
-    ],
-    managers: ["John Doe", "Jane Smith"],
-    work_experience: %{
-      "Company A" => "Marketing Specialist",
-      "Company B" => "Sales Executive"
-    }
+    name: "Foobar123",
+    age: _,
+    children_count: _,
+    favorite_day: _,
+    favorite_color: :RED,
+    __baml_class__: "TestPerson"
   }
-}}
+}} =
+  BamlElixirTest.CreateEmployee.call(%{}, %{
+    tb: [
+      %TypeBuilder.Class{
+        name: "TestPerson",
+        fields: [
+          %TypeBuilder.Field{
+            name: "name",
+            type: :string,
+            description: "The name of the person - this should always be Foobar123"
+          },
+          %TypeBuilder.Field{name: "age", type: :int},
+          %TypeBuilder.Field{name: "children_count", type: 1},
+          %TypeBuilder.Field{name: "favorite_day", type: %TypeBuilder.Union{types: ["sunday", "monday"]}},
+          %TypeBuilder.Field{name: "favorite_color", type: %TypeBuilder.Enum{name: "FavoriteColor"}}
+        ]
+      },
+      %TypeBuilder.Class{
+        name: "DynamicEmployee",
+        fields: [
+          %TypeBuilder.Field{name: "person", type: %TypeBuilder.Class{name: "TestPerson"}}
+        ]
+      },
+      %TypeBuilder.Enum{
+        name: "FavoriteColor",
+        values: [
+          %TypeBuilder.EnumValue{value: "RED", description: "Pick this always"},
+          %TypeBuilder.EnumValue{value: "GREEN"},
+          %TypeBuilder.EnumValue{value: "BLUE"}
+        ]
+      }
+    ]
+  })
 ```
 
 **Note**: Classes with dynamic fields are not parsed into structs. They return a map with a `__baml_class__` key which can be used for pattern matching.

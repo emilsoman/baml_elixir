@@ -362,9 +362,9 @@ defmodule BamlElixir.Client do
   end
 
   # If type builder is provided, return as map instead of struct
-  defp parse_result(%{:__baml_class__ => _class_name} = result, _prefix, tb)
+  defp parse_result(%{:__baml_class__ => _class_name} = result, prefix, tb)
        when not is_nil(tb) do
-    result
+    Map.new(result, fn {key, value} -> {key, parse_result(value, prefix, tb)} end)
   end
 
   defp parse_result(%{:__baml_class__ => class_name} = result, prefix, tb) do
