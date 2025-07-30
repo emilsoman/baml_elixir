@@ -1,6 +1,9 @@
 defmodule BamlElixirTest do
   use ExUnit.Case
   use BamlElixir.Client, path: "test/baml_src"
+
+  alias BamlElixir.TypeBuilder
+
   doctest BamlElixir
 
   test "parses into a struct" do
@@ -39,19 +42,25 @@ defmodule BamlElixirTest do
               }
             }} =
              BamlElixirTest.CreateEmployee.call(%{}, %{
-               tb: %{
-                 {:class, "TestPerson"} => %{
-                   "name" => :string,
-                   "age" => :int,
-                   "owned_houses_count" => 1,
-                   "type" => {:union, ["alive", "dead"]},
-                   "favorite_color" => {:enum, "FavoriteColor"}
+               tb: [
+                 %TypeBuilder.Class{
+                   name: "TestPerson",
+                   fields: [
+                     %TypeBuilder.Field{name: "name", type: :string},
+                     %TypeBuilder.Field{name: "age", type: :int},
+                     %TypeBuilder.Field{name: "owned_houses_count", type: 1},
+                     %TypeBuilder.Field{name: "type", type: {:union, ["alive", "dead"]}},
+                     %TypeBuilder.Field{name: "favorite_color", type: {:enum, "FavoriteColor"}}
+                   ]
                  },
-                 {:class, "NewEmployeeFullyDynamic"} => %{
-                   "person" => {:class, "TestPerson"}
+                 %TypeBuilder.Class{
+                   name: "NewEmployeeFullyDynamic",
+                   fields: [
+                     %TypeBuilder.Field{name: "person", type: {:class, "TestPerson"}}
+                   ]
                  },
-                 {:enum, "FavoriteColor"} => ["RED", "GREEN", "BLUE"]
-               }
+                 %TypeBuilder.Enum{name: "FavoriteColor", values: ["RED", "GREEN", "BLUE"]}
+               ]
              })
   end
 
@@ -61,7 +70,7 @@ defmodule BamlElixirTest do
               __baml_class__: "NewEmployeeFullyDynamic",
               employee_id: _,
               person: %{
-                __baml_class__: "NewEmployeeFullyDynamic_person",
+                __baml_class__: "ThisClassIsNotDefinedInTheBAMLFile",
                 name: _,
                 age: _,
                 departments: list_of_deps,
@@ -70,17 +79,46 @@ defmodule BamlElixirTest do
               }
             } = employee} =
              BamlElixirTest.CreateEmployee.call(%{}, %{
-               tb: %{
-                 {:class, "NewEmployeeFullyDynamic"} => %{
-                   "person" => %{
-                     "name" => :string,
-                     "age" => :int,
-                     "departments" => [%{"name" => :string, "location" => :string}],
-                     "managers" => [:string],
-                     "work_experience" => {:map, :string, :string}
-                   }
+               tb: [
+                 %TypeBuilder.Class{
+                   name: "NewEmployeeFullyDynamic",
+                   fields: [
+                     %TypeBuilder.Field{
+                       name: "person",
+                       type: %TypeBuilder.Class{
+                         name: "ThisClassIsNotDefinedInTheBAMLFile",
+                         fields: [
+                           %TypeBuilder.Field{name: "name", type: :string},
+                           %TypeBuilder.Field{name: "age", type: :int},
+                           %TypeBuilder.Field{
+                             name: "departments",
+                             type: %TypeBuilder.List{
+                               type: %TypeBuilder.Class{
+                                 name: "Department",
+                                 fields: [
+                                   %TypeBuilder.Field{name: "name", type: :string},
+                                   %TypeBuilder.Field{name: "location", type: :string}
+                                 ]
+                               }
+                             }
+                           },
+                           %TypeBuilder.Field{
+                             name: "managers",
+                             type: %TypeBuilder.List{type: :string}
+                           },
+                           %TypeBuilder.Field{
+                             name: "work_experience",
+                             type: %TypeBuilder.Map{
+                               key_type: :string,
+                               value_type: :string
+                             }
+                           }
+                         ]
+                       }
+                     }
+                   ]
                  }
-               }
+               ]
              })
 
     assert Enum.sort(Map.keys(employee)) ==

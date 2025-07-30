@@ -218,7 +218,7 @@ fn prepare_request<'a>(
         )));
     };
 
-    let tb = if tb_elixir.is_map() {
+    let tb = if tb_elixir.is_list() {
         let builder = TypeBuilder::new();
 
         // Use the parse_type_builder_spec function from type_builder module

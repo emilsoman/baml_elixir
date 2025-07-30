@@ -8,78 +8,205 @@ pub fn parse_type_builder_spec<'a>(
     term: Term<'a>,
     builder: &TypeBuilder,
 ) -> Result<(), Error> {
-    if term.is_map() {
-        let iter = MapIterator::new(term).ok_or(Error::Term(Box::new("Invalid map")))?;
-        for (key_term, value_term) in iter {
-            if !key_term.is_tuple() {
-                return Err(Error::Term(Box::new("Type builder keys must be tuples: {:class, \"ClassName\"} or {:enum, \"EnumName\"}")));
-            }
-
-            let tuple: (rustler::Atom, Term) = key_term.decode()?;
-            let atom_str = tuple
-                .0
-                .encode(env)
-                .atom_to_string()
-                .map_err(|_| Error::Term(Box::new("Invalid atom")))?;
-
-            match atom_str.as_str() {
-                "class" => {
-                    let class_name = term_to_string(tuple.1)?;
-                    let cls = builder.class(&class_name);
-                    let cls = cls.lock().unwrap();
-
-                    if value_term.is_map() {
-                        let field_iter = MapIterator::new(value_term)
-                            .ok_or(Error::Term(Box::new("Invalid class spec map")))?;
-                        for (field_name_term, field_type_term) in field_iter {
-                            let field_name = term_to_string(field_name_term)?;
-                            let property = cls.property(&field_name);
-                            let property = property.lock().unwrap();
-                            let field_type = parse_field_type(
-                                env,
-                                field_type_term,
-                                builder,
-                                Some(&class_name),
-                                Some(&field_name),
-                            )?;
-                            property.r#type(field_type);
-                        }
-                    } else {
-                        return Err(Error::Term(Box::new(
-                            "Class values must be maps of field definitions",
-                        )));
-                    }
-                }
-                "enum" => {
-                    let enum_name = term_to_string(tuple.1)?;
-                    let enum_def = builder.r#enum(&enum_name);
-                    let enum_def = enum_def.lock().unwrap();
-
-                    if value_term.is_list() {
-                        let variants: Vec<Term> = value_term.decode()?;
-                        for variant in variants {
-                            let variant_str = term_to_string(variant)?;
-                            enum_def.value(&variant_str);
-                        }
-                    } else {
-                        return Err(Error::Term(Box::new(
-                            "Enum values must be lists of string variants",
-                        )));
-                    }
-                }
-                _ => {
-                    return Err(Error::Term(Box::new(format!(
-                        "Unsupported type builder key: {}",
-                        atom_str
-                    ))));
-                }
-            }
-        }
-    } else {
+    if !term.is_list() {
         return Err(Error::Term(Box::new(
-            "Type builder specification must be a map",
+            "TypeBuilder specification must be a list",
         )));
     }
+
+    // New format: list of TypeBuilder structs
+    let list: Vec<Term> = term.decode()?;
+    for item in list {
+        parse_type_builder_item(env, item, builder)?;
+    }
+    Ok(())
+}
+
+fn parse_type_builder_item<'a>(
+    env: Env<'a>,
+    term: Term<'a>,
+    builder: &TypeBuilder,
+) -> Result<(), Error> {
+    if !term.is_map() {
+        return Err(Error::Term(Box::new("TypeBuilder item must be a map")));
+    }
+
+    let iter = MapIterator::new(term).ok_or(Error::Term(Box::new("Invalid map")))?;
+    let mut item_type = None;
+
+    for (key_term, value_term) in iter {
+        let key = term_to_string(key_term)?;
+        match key.as_str() {
+            "__struct__" => match term_to_string(value_term) {
+                Ok(struct_name) => {
+                    item_type = Some(struct_name);
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            },
+            _ => {
+                // Ignore other fields for now
+            }
+        }
+    }
+
+    match item_type.as_deref() {
+        Some("Elixir.BamlElixir.TypeBuilder.Class") => {
+            parse_class_item(env, term, builder)?;
+        }
+        Some("Elixir.BamlElixir.TypeBuilder.Enum") => {
+            parse_enum_item(env, term, builder)?;
+        }
+        Some(other) => {
+            return Err(Error::Term(Box::new(format!(
+                "Unsupported TypeBuilder struct: {}",
+                other
+            ))));
+        }
+        None => {
+            return Err(Error::Term(Box::new("Missing __struct__ field")));
+        }
+    }
+
+    Ok(())
+}
+
+fn parse_class_item<'a>(
+    env: Env<'a>,
+    class_term: Term<'a>,
+    builder: &TypeBuilder,
+) -> Result<(), Error> {
+    if !class_term.is_map() {
+        return Err(Error::Term(Box::new("Class data must be a map")));
+    }
+
+    let iter = MapIterator::new(class_term).ok_or(Error::Term(Box::new("Invalid class map")))?;
+    let mut class_name = None;
+    let mut fields = None;
+
+    for (key_term, value_term) in iter {
+        let key = term_to_string(key_term)?;
+        match key.as_str() {
+            "name" => {
+                class_name = Some(term_to_string(value_term)?);
+            }
+            "fields" => {
+                fields = Some(value_term);
+            }
+            _ => {}
+        }
+    }
+
+    let class_name = class_name.ok_or(Error::Term(Box::new("Class missing name field")))?;
+    let fields = fields.ok_or(Error::Term(Box::new("Class missing fields")))?;
+
+    // Create the class in the type builder
+    let cls = builder.class(&class_name);
+    let cls = cls.lock().unwrap();
+
+    if fields.is_list() {
+        let field_list: Vec<Term> = fields.decode()?;
+        for field_term in field_list {
+            parse_field_item(env, field_term, builder, &class_name, &cls)?;
+        }
+    } else {
+        return Err(Error::Term(Box::new("Class fields must be a list")));
+    }
+
+    Ok(())
+}
+
+fn parse_enum_item<'a>(
+    _env: Env<'a>,
+    enum_term: Term<'a>,
+    builder: &TypeBuilder,
+) -> Result<(), Error> {
+    if !enum_term.is_map() {
+        return Err(Error::Term(Box::new("Enum data must be a map")));
+    }
+
+    let iter = MapIterator::new(enum_term).ok_or(Error::Term(Box::new("Invalid enum map")))?;
+    let mut enum_name = None;
+    let mut values = None;
+
+    for (key_term, value_term) in iter {
+        let key = term_to_string(key_term)?;
+        match key.as_str() {
+            "name" => {
+                enum_name = Some(term_to_string(value_term)?);
+            }
+            "values" => {
+                values = Some(value_term);
+            }
+            _ => {}
+        }
+    }
+
+    let enum_name = enum_name.ok_or(Error::Term(Box::new("Enum missing name field")))?;
+    let values = values.ok_or(Error::Term(Box::new("Enum missing values")))?;
+
+    // Create the enum in the type builder
+    let enum_builder = builder.r#enum(&enum_name);
+    let enum_builder = enum_builder.lock().unwrap();
+
+    if values.is_list() {
+        let value_list: Vec<Term> = values.decode()?;
+        for value_term in value_list {
+            let value_name = term_to_string(value_term)?;
+            enum_builder.value(&value_name);
+        }
+    } else {
+        return Err(Error::Term(Box::new("Enum values must be a list")));
+    }
+
+    Ok(())
+}
+
+fn parse_field_item<'a>(
+    env: Env<'a>,
+    field_term: Term<'a>,
+    builder: &TypeBuilder,
+    parent_class: &str,
+    cls: &std::sync::MutexGuard<baml_runtime::type_builder::ClassBuilder>,
+) -> Result<(), Error> {
+    if !field_term.is_map() {
+        return Err(Error::Term(Box::new("Field must be a map")));
+    }
+
+    let iter = MapIterator::new(field_term).ok_or(Error::Term(Box::new("Invalid field map")))?;
+    let mut field_name = None;
+    let mut field_type = None;
+
+    for (key_term, value_term) in iter {
+        let key = term_to_string(key_term)?;
+        match key.as_str() {
+            "name" => {
+                field_name = Some(term_to_string(value_term)?);
+            }
+            "type" => {
+                field_type = Some(value_term);
+            }
+            _ => {}
+        }
+    }
+
+    let field_name = field_name.ok_or(Error::Term(Box::new("Missing field name")))?;
+    let field_type_term = field_type.ok_or(Error::Term(Box::new("Missing field type")))?;
+
+    let type_ir = parse_field_type(
+        env,
+        field_type_term,
+        builder,
+        Some(parent_class),
+        Some(&field_name),
+    )?;
+
+    // Add the field to the class
+    let property = cls.property(&field_name);
+    let property = property.lock().unwrap();
+    property.r#type(type_ir);
+
     Ok(())
 }
 
@@ -179,36 +306,109 @@ fn parse_field_type<'a>(
         let inner_type = parse_field_type(env, *first_item, builder, parent_class, field_name)?;
         Ok(TypeIR::list(inner_type))
     } else if term.is_map() {
-        // For nested objects, create an anonymous class
-        let map_iter =
+        // Check if this is a TypeBuilder struct
+        let iter =
             MapIterator::new(term).ok_or(Error::Term(Box::new("Invalid map for object type")))?;
+        let mut struct_type = None;
 
-        // Generate a unique class name for this anonymous class
-        let anonymous_class_name = if let (Some(parent), Some(field)) = (parent_class, field_name) {
-            format!("{}_{}", parent, field)
-        } else {
-            "anonymous_class".to_string()
-        };
-
-        // Create the anonymous class in the type builder
-        let cls = builder.class(&anonymous_class_name);
-        let cls = cls.lock().unwrap();
-
-        for (key_term, value_term) in map_iter {
-            let fname = term_to_string(key_term)?;
-            let property = cls.property(&fname);
-            let property = property.lock().unwrap();
-            let ftype = parse_field_type(
-                env,
-                value_term,
-                builder,
-                Some(&anonymous_class_name),
-                Some(&fname),
-            )?;
-            property.r#type(ftype.clone());
+        for (key_term, value_term) in iter {
+            let key = term_to_string(key_term)?;
+            match key.as_str() {
+                "__struct__" => {
+                    let struct_name = term_to_string(value_term)?;
+                    struct_type = Some(struct_name);
+                }
+                _ => {}
+            }
         }
 
-        Ok(TypeIR::class(&anonymous_class_name))
+        match struct_type.as_deref() {
+            Some("Elixir.BamlElixir.TypeBuilder.Class") => {
+                parse_class_item(env, term, builder)?;
+                // Return the class type
+                let iter =
+                    MapIterator::new(term).ok_or(Error::Term(Box::new("Invalid class map")))?;
+                for (key_term, value_term) in iter {
+                    let key = term_to_string(key_term)?;
+                    if key == "name" {
+                        let class_name = term_to_string(value_term)?;
+                        return Ok(TypeIR::class(&class_name));
+                    }
+                }
+                Err(Error::Term(Box::new("Could not extract class name")))
+            }
+            Some("Elixir.BamlElixir.TypeBuilder.List") => {
+                // Extract the inner type from the list
+                let iter =
+                    MapIterator::new(term).ok_or(Error::Term(Box::new("Invalid list map")))?;
+                for (key_term, value_term) in iter {
+                    let key = term_to_string(key_term)?;
+                    if key == "type" {
+                        let inner_type =
+                            parse_field_type(env, value_term, builder, parent_class, field_name)?;
+                        return Ok(TypeIR::list(inner_type));
+                    }
+                }
+                Err(Error::Term(Box::new("Could not extract list inner type")))
+            }
+            Some("Elixir.BamlElixir.TypeBuilder.Map") => {
+                // Extract key and value types from the map
+                let mut key_type = None;
+                let mut value_type = None;
+
+                let iter =
+                    MapIterator::new(term).ok_or(Error::Term(Box::new("Invalid map map")))?;
+                for (key_term, value_term) in iter {
+                    let key = term_to_string(key_term)?;
+                    match key.as_str() {
+                        "key_type" => {
+                            key_type = Some(parse_field_type(
+                                env,
+                                value_term,
+                                builder,
+                                parent_class,
+                                field_name,
+                            )?);
+                        }
+                        "value_type" => {
+                            value_type = Some(parse_field_type(
+                                env,
+                                value_term,
+                                builder,
+                                parent_class,
+                                field_name,
+                            )?);
+                        }
+                        _ => {}
+                    }
+                }
+
+                if let (Some(key), Some(value)) = (key_type, value_type) {
+                    return Ok(TypeIR::map(key, value));
+                }
+                Err(Error::Term(Box::new(
+                    "Could not extract map key and value types",
+                )))
+            }
+            Some("Elixir.BamlElixir.TypeBuilder.Enum") => {
+                parse_enum_item(env, term, builder)?;
+                // Return the enum type
+                let iter =
+                    MapIterator::new(term).ok_or(Error::Term(Box::new("Invalid enum map")))?;
+                for (key_term, value_term) in iter {
+                    let key = term_to_string(key_term)?;
+                    if key == "name" {
+                        let enum_name = term_to_string(value_term)?;
+                        return Ok(TypeIR::r#enum(&enum_name));
+                    }
+                }
+                Err(Error::Term(Box::new("Could not extract enum name")))
+            }
+            _ => Err(Error::Term(Box::new(format!(
+                "Unsupported TypeBuilder struct: {:?}",
+                struct_type
+            )))),
+        }
     } else {
         Err(Error::Term(Box::new("Unsupported field type")))
     }
@@ -219,8 +419,9 @@ fn term_to_string(term: Term) -> Result<String, Error> {
     if term.is_atom() {
         term.atom_to_string()
             .map_err(|_| Error::Term(Box::new("Invalid atom")))
+    } else if let Ok(string_value) = term.decode::<String>() {
+        Ok(string_value)
     } else {
-        term.decode::<String>()
-            .map_err(|_| Error::Term(Box::new("Invalid string")))
+        Err(Error::Term(Box::new("Term is not a string or atom")))
     }
 }
