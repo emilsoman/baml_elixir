@@ -147,33 +147,74 @@ MyApp.BamlClient.WhichModel.call(%{}, %{
 # => "deepseek-r1"
 ```
 
-### Type builder
+### Type Builder
 
-You can provide a type builder to the client. This is a list of tuples in the format `{:class, "Person", [%{name: "name", type: "string"}, %{name: "age", type: "int"}]}`
+You can provide a type builder to dynamically define types at runtime. This is useful for classes with `@@dynamic` attributes or when you need to create types that aren't defined in your BAML files.
+
+The type builder is a map where:
+
+- **Keys** are tuples: `{:class, "ClassName"}` or `{:enum, "EnumName"}`
+- **Values** define the structure:
+  - For classes: a map of field names to their types
+  - For enums: a list of string values
+
+#### Supported Type Formats
+
+- **Primitive types**: `:string`, `:int`, `:float`, `:boolean`
+- **Class references**: `{:class, "ClassName"}`
+- **Enum references**: `{:enum, "EnumName"}`
+- **Lists**: `[:string]` or `[{:class, "ClassName"}]`
+- **Maps**: `{:map, :string, :string}` (key_type, value_type)
+- **Unions**: `{:union, ["option1", "option2"]}`
+- **Literals**: `1`, `"fixed_value"`
+
+#### Examples
 
 Given this BAML file:
 
 ```baml
-class NewEmployee {
+class DynamicEmployee {
     employee_id string
     @@dynamic // allows adding fields dynamically at runtime
 }
 ```
 
 ```elixir
-
 MyApp.BamlClient.CreateEmployee.call(%{}, %{
-  tb: [
-    {:class, "TestPerson", [%{name: "name", type: "string"}, %{name: "age", type: "int"}]},
-    {:class, "NewEmployee", [%{name: "person", type: "TestPerson"}]}
-  ]
+  tb: %{
+    {:class, "DynamicEmployee"} => %{
+      "person" => %{
+        "name" => :string,
+        "age" => :int,
+        "departments" => [%{"name" => :string, "location" => :string}],
+        "managers" => [:string],
+        "work_experience" => {:map, :string, :string}
+      }
+    }
+  }
 })
 
 # Returns:
-{:ok, %{__baml_class__: "NewEmployee", employee_id: "EMP123456", person: %{name: "John Doe", age: 34, __baml_class__: "TestPerson"}}}
+{:ok, %{
+  __baml_class__: "DynamicEmployee",
+  employee_id: "EMP123456", # This is not dynamic and defined in the BAML file
+  person: %{
+    name: "Alice Johnson",
+    age: 29,
+    departments: [
+      %{"name" => "Marketing", "location" => "New York"},
+      %{"name" => "Sales", "location" => "San Francisco"}
+    ],
+    managers: ["John Doe", "Jane Smith"],
+    work_experience: %{
+      "Company A" => "Marketing Specialist",
+      "Company B" => "Sales Executive"
+    }
+  }
+}}
 ```
 
-Note: Classes with dynamic fields are not parsed into structs, they return a map with a `__baml_class__` key which can be used for pattern matching.
+**Note**: Classes with dynamic fields are not parsed into structs. They return a map with a `__baml_class__` key which can be used for pattern matching.
 
 ## Installation
 
