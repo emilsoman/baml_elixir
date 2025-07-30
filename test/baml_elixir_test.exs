@@ -28,17 +28,67 @@ defmodule BamlElixirTest do
   test "parses into a struct with a type builder" do
     assert {:ok,
             %{
-              __baml_class__: "NewEmployee",
+              __baml_class__: "NewEmployeeFullyDynamic",
               employee_id: _,
-              person: %{name: _, age: _, __baml_class__: "TestPerson"}
+              person: %{
+                name: _,
+                age: _,
+                owned_houses_count: _,
+                type: _,
+                __baml_class__: "TestPerson"
+              }
             }} =
              BamlElixirTest.CreateEmployee.call(%{}, %{
-               tb: [
-                 {:class, "TestPerson",
-                  [%{"name" => "name", "type" => "string"}, %{"name" => "age", "type" => "int"}]},
-                 {:class, "NewEmployee", [%{"name" => "person", "type" => "TestPerson"}]}
-               ]
+               tb: %{
+                 {:class, "TestPerson"} => %{
+                   "name" => :string,
+                   "age" => :int,
+                   "owned_houses_count" => 1,
+                   "type" => {:union, ["alive", "dead"]},
+                   "favorite_color" => {:enum, "FavoriteColor"}
+                 },
+                 {:class, "NewEmployeeFullyDynamic"} => %{
+                   "person" => {:class, "TestPerson"}
+                 },
+                 {:enum, "FavoriteColor"} => ["RED", "GREEN", "BLUE"]
+               }
              })
+  end
+
+  test "parses into a list of maps using type builder" do
+    assert {:ok,
+            %{
+              __baml_class__: "NewEmployeeFullyDynamic",
+              employee_id: _,
+              person: %{
+                __baml_class__: "NewEmployeeFullyDynamic_person",
+                name: _,
+                age: _,
+                departments: list_of_deps,
+                managers: list_of_managers
+              }
+            } = employee} =
+             BamlElixirTest.CreateEmployee.call(%{}, %{
+               tb: %{
+                 {:class, "NewEmployeeFullyDynamic"} => %{
+                   "person" => %{
+                     "name" => :string,
+                     "age" => :int,
+                     "departments" => [%{"name" => :string, "location" => :string}],
+                     "managers" => [:string]
+                   }
+                 }
+               }
+             })
+
+    assert Enum.sort(Map.keys(employee)) ==
+             Enum.sort([:__baml_class__, :employee_id, :person])
+
+    assert Enum.sort(Map.keys(employee.person)) ==
+             Enum.sort([:__baml_class__, :name, :age, :departments, :managers])
+
+    assert is_list(list_of_deps)
+    assert is_list(list_of_managers)
   end
 
   test "change default model" do

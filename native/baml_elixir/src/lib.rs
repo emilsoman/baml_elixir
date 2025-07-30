@@ -7,8 +7,7 @@ use baml_types::{BamlMap, BamlValue, LiteralValue, TypeIR};
 
 use collector::{FunctionLog, Usage};
 use rustler::{
-    Encoder, Env, Error, ListIterator, LocalPid, MapIterator, NifResult, NifStruct, ResourceArc,
-    Term,
+    Encoder, Env, Error, LocalPid, MapIterator, NifResult, NifStruct, ResourceArc, Term,
 };
 use std::collections::HashMap;
 use std::path::Path;
@@ -24,6 +23,7 @@ mod atoms {
 }
 
 mod collector;
+mod type_builder;
 
 fn term_to_string(term: Term) -> Result<String, Error> {
     if term.is_atom() {
@@ -149,6 +149,7 @@ struct Client<'a> {
 }
 
 fn prepare_request<'a>(
+    env: Env<'a>,
     args: Term<'a>,
     path: String,
     collectors: Vec<ResourceArc<collector::CollectorResource>>,
@@ -217,60 +218,12 @@ fn prepare_request<'a>(
         )));
     };
 
-    let tb = if tb_elixir.is_list() {
+    let tb = if tb_elixir.is_map() {
         let builder = TypeBuilder::new();
 
-        let iter: ListIterator = tb_elixir.decode()?;
-
-        // Iterate over each item in the list
-        for item_term in iter {
-            // Each item is a tuple in the format {:class, "Person", fields}
-            // We need to decode it as a tuple
-            if let Ok((kind, name, fields)) =
-                item_term.decode::<(rustler::Atom, String, Vec<Term>)>()
-            {
-                let env = item_term.get_env();
-                let class_atom = rustler::Atom::from_str(env, "class")
-                    .map_err(|_| Error::Term(Box::new("Failed to create atom")))?;
-
-                if kind == class_atom {
-                    let cls = builder.class(&name);
-                    let cls = cls.lock().unwrap();
-
-                    // Iterate over the fields list
-                    for field_term in fields {
-                        // Each field is a map with name, type, description
-                        if field_term.is_map() {
-                            let field_iter = MapIterator::new(field_term)
-                                .ok_or(Error::Term(Box::new("Invalid field map")))?;
-
-                            let mut field_name = String::new();
-                            let mut field_type = String::new();
-
-                            for (key_term, value_term) in field_iter {
-                                let key = term_to_string(key_term)?;
-                                match key.as_str() {
-                                    "name" => field_name = term_to_string(value_term)?,
-                                    "type" => field_type = term_to_string(value_term)?,
-                                    _ => {} // Ignore other fields like description
-                                }
-                            }
-
-                            // Set the field type based on the string type
-                            let property = cls.property(&field_name);
-                            let property = property.lock().unwrap();
-                            match field_type.as_str() {
-                                "string" => property.r#type(TypeIR::string()),
-                                "int" => property.r#type(TypeIR::int()),
-                                "float" => property.r#type(TypeIR::float()),
-                                "bool" => property.r#type(TypeIR::bool()),
-                                // TODO: handle other types and metadata as well.
-                                _ => property.r#type(TypeIR::class(&field_type)),
-                            };
-                        }
-                    }
-                }
-            }
+        // Use the parse_type_builder_spec function from type_builder module
+        if let Err(e) = type_builder::parse_type_builder_spec(env, tb_elixir, &builder) {
+            return Err(e);
         }
 
         Some(builder)
@@ -322,7 +275,7 @@ fn call<'a>(
     tb: Term<'a>,
 ) -> NifResult<Term<'a>> {
     let (runtime, params, ctx, collectors, client_registry, tb) =
-        prepare_request(arguments, path, collectors, client_registry, tb)?;
+        prepare_request(env, arguments, path, collectors, client_registry, tb)?;
 
     // Call function synchronously
     let (result, _trace_id) = runtime.call_function_sync(
@@ -356,7 +309,7 @@ fn stream<'a>(
 ) -> NifResult<Term<'a>> {
     let pid = pid.decode::<LocalPid>()?;
     let (runtime, params, ctx, collectors, client_registry, tb) =
-        prepare_request(arguments, path, collectors, client_registry, tb)?;
+        prepare_request(env, arguments, path, collectors, client_registry, tb)?;
 
     let on_event = |r: FunctionResult| {
         match parse_function_result_stream(env, r) {

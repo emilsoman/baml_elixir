@@ -67,11 +67,12 @@ class MyClass {
   @@dynamic // allows adding fields dynamically at runtime
 }
 
-class NewEmployee {
+class NewEmployeeFullyDynamic {
   employee_id string
+  @@dynamic // allows adding fields dynamically at runtime
 }
 
-function CreateEmployee() -> NewEmployee {
+function CreateEmployee() -> NewEmployeeFullyDynamic {
   client GPT4
   prompt #"
     Create a fake employee data with the following information:

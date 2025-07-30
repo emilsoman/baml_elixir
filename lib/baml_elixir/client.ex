@@ -358,22 +358,12 @@ defmodule BamlElixir.Client do
     path = opts[:path] || "baml_src"
     collectors = (opts[:collectors] || []) |> Enum.map(fn collector -> collector.reference end)
     client_registry = opts[:llm_client] && %{primary: opts[:llm_client]}
-    tb = prepare_type_builder(opts[:tb])
-    {path, collectors, client_registry, tb}
-  end
-
-  defp prepare_type_builder(tb) do
-    case tb do
-      [_ | _] ->
-        tb
-
-      _ ->
-        nil
-    end
+    {path, collectors, client_registry, opts[:tb]}
   end
 
   # If type builder is provided, return as map instead of struct
-  defp parse_result(%{:__baml_class__ => _class_name} = result, _prefix, [_ | _]) do
+  defp parse_result(%{:__baml_class__ => _class_name} = result, _prefix, tb)
+       when not is_nil(tb) do
     result
   end
 
