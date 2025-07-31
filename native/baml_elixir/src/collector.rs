@@ -179,6 +179,8 @@ impl Encoder for LLMStreamCall {
                         .unwrap()
                         .map_put("headers", r.headers())
                         .unwrap()
+                        .map_put("body", r.body.text().unwrap_or_default().encode(env))
+                        .unwrap()
                 }),
             )
             .unwrap()

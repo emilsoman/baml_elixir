@@ -229,6 +229,41 @@ defmodule BamlElixirTest do
            ]
   end
 
+  test "get last function log from collector with streaming" do
+    collector = BamlElixir.Collector.new("test-collector")
+    pid = self()
+
+    BamlElixirTest.CreateEmployee.stream(
+      %{},
+      fn result -> send(pid, result) end,
+      %{llm_client: "GPT4", collectors: [collector]}
+    )
+
+    _messages = wait_for_all_messages()
+
+    last_function_log = BamlElixir.Collector.last_function_log(collector)
+
+    %{"messages" => messages} =
+      last_function_log["calls"]
+      |> Enum.at(0)
+      |> Map.get("request")
+      |> Map.get("body")
+      |> Jason.decode!()
+
+    assert messages == [
+             %{
+               "content" => [
+                 %{
+                   "text" =>
+                     "Create a fake employee data with the following information:\nAnswer in JSON using this schema:\n{\n  employee_id: string,\n}",
+                   "type" => "text"
+                 }
+               ],
+               "role" => "system"
+             }
+           ]
+  end
+
   test "parsing of nested structs" do
     attendees = %BamlElixirTest.Attendees{
       hosts: [
