@@ -102,7 +102,7 @@ fn parse_class_item<'a>(
     let fields = fields.ok_or(Error::Term(Box::new("Class missing fields")))?;
 
     // Create the class in the type builder
-    let cls = builder.class(&class_name);
+    let cls = builder.upsert_class(&class_name);
     let cls = cls.lock().unwrap();
 
     if fields.is_list() {
@@ -143,7 +143,7 @@ fn parse_enum_item<'a>(enum_term: Term<'a>, builder: &TypeBuilder) -> Result<(),
     let values = values.ok_or(Error::Term(Box::new("Enum missing values")))?;
 
     // Create the enum in the type builder
-    let enum_builder = builder.r#enum(&enum_name);
+    let enum_builder = builder.upsert_enum(&enum_name);
     let enum_builder = enum_builder.lock().unwrap();
 
     if values.is_list() {
@@ -193,7 +193,7 @@ fn parse_enum_value_item<'a>(
     let value_name = value_name.ok_or(Error::Term(Box::new("Enum value missing value field")))?;
 
     // Add the enum value
-    let value_builder = enum_builder.value(&value_name);
+    let value_builder = enum_builder.upsert_value(&value_name);
     let value_builder = value_builder.lock().unwrap();
 
     // Add description if provided
@@ -248,9 +248,9 @@ fn parse_field_item<'a>(
     )?;
 
     // Add the field to the class
-    let property = cls.property(&field_name);
+    let property = cls.upsert_property(&field_name);
     let property = property.lock().unwrap();
-    property.r#type(type_ir);
+    property.set_type(type_ir);
 
     // Add description if provided
     if let Some(desc) = description {
