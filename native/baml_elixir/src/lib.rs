@@ -10,8 +10,9 @@ use rustler::{
     Encoder, Env, Error, LocalPid, MapIterator, NifResult, NifStruct, ResourceArc, Term,
 };
 use std::collections::HashMap;
-use std::path::Path;
-use std::sync::Arc;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, LazyLock, RwLock};
+use std::time::SystemTime;
 mod atoms {
     rustler::atoms! {
         ok,
@@ -24,6 +25,83 @@ mod atoms {
 
 mod collector;
 mod type_builder;
+
+// Runtime cache to avoid re-reading files on every call
+struct RuntimeCacheEntry {
+    runtime: BamlRuntime,
+    last_modified: SystemTime,
+}
+
+// Using LazyLock from std library (Rust 1.80+)
+static RUNTIME_CACHE: LazyLock<RwLock<HashMap<PathBuf, RuntimeCacheEntry>>> = 
+    LazyLock::new(|| RwLock::new(HashMap::new()));
+
+// Helper function to get the most recent modification time of all BAML files
+fn get_baml_files_last_modified(path: &Path) -> Result<SystemTime, Error> {
+    let mut most_recent = SystemTime::UNIX_EPOCH;
+    
+    // Walk the directory to find all .baml files
+    for entry in walkdir::WalkDir::new(path)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("baml"))
+    {
+        if let Ok(metadata) = entry.metadata() {
+            if let Ok(modified) = metadata.modified() {
+                if modified > most_recent {
+                    most_recent = modified;
+                }
+            }
+        }
+    }
+    
+    Ok(most_recent)
+}
+
+// Get or create a cached runtime
+fn get_or_create_runtime(path: &str) -> Result<BamlRuntime, Error> {
+    let path_buf = PathBuf::from(path);
+    let current_modified = get_baml_files_last_modified(&path_buf)?;
+    
+    // Try to get from cache first
+    {
+        let cache = RUNTIME_CACHE.read().map_err(|_| Error::Term(Box::new("Cache lock poisoned")))?;
+        if let Some(entry) = cache.get(&path_buf) {
+            // Check if cache is still valid
+            if entry.last_modified >= current_modified {
+                return Ok(entry.runtime.clone());
+            }
+        }
+    }
+    
+    // Cache miss or stale - create new runtime
+    let runtime = BamlRuntime::from_directory(&path_buf, std::env::vars().collect())
+        .map_err(|e| Error::Term(Box::new(e.to_string())))?;
+    
+    // Update cache
+    {
+        let mut cache = RUNTIME_CACHE.write().map_err(|_| Error::Term(Box::new("Cache lock poisoned")))?;
+        cache.insert(
+            path_buf.clone(),
+            RuntimeCacheEntry {
+                runtime: runtime.clone(),
+                last_modified: current_modified,
+            },
+        );
+    }
+    
+    Ok(runtime)
+}
+
+// Clear the runtime cache (useful for testing or manual invalidation)
+#[rustler::nif]
+fn clear_runtime_cache() -> NifResult<()> {
+    let mut cache = RUNTIME_CACHE.write()
+        .map_err(|_| Error::Term(Box::new("Cache lock poisoned")))?;
+    cache.clear();
+    Ok(())
+}
 
 fn term_to_string(term: Term) -> Result<String, Error> {
     if term.is_atom() {
@@ -166,10 +244,8 @@ fn prepare_request<'a>(
     ),
     Error,
 > {
-    let runtime = match BamlRuntime::from_directory(&Path::new(&path), std::env::vars().collect()) {
-        Ok(r) => r,
-        Err(e) => return Err(Error::Term(Box::new(e.to_string()))),
-    };
+    // Use cached runtime instead of creating new one every time
+    let runtime = get_or_create_runtime(&path)?;
 
     // Convert args to BamlMap
     let mut params = BamlMap::new();
