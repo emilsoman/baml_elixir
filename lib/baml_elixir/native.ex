@@ -24,4 +24,6 @@ defmodule BamlElixir.Native do
   def collector_last_function_log(_collector), do: :erlang.nif_error(:nif_not_loaded)
 
   def parse_baml(_path), do: :erlang.nif_error(:nif_not_loaded)
+
+  def clear_runtime_cache(), do: :erlang.nif_error(:nif_not_loaded)
 end

@@ -1060,6 +1060,7 @@ dependencies = [
  "baml-runtime",
  "baml-types",
  "rustler",
+ "walkdir",
 ]
 
 [[package]]
