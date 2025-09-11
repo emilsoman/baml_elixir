@@ -93,9 +93,12 @@ end)
 You can also use `sync_stream` to get partial results and block until the function is done.
 
 ```elixir
-case MyApp.BamlClient.ExtractResume.sync_stream(%{resume: "John Doe is the CTO of Acme Inc."}, fn result ->
-  IO.inspect(result)
-end) do
+case MyApp.BamlClient.ExtractResume.sync_stream(
+        %{resume: "John Doe is the CTO of Acme Inc."},
+        fn result ->
+          IO.inspect(result)
+        end
+      ) do
   {:ok, result} ->
     IO.inspect(result)
 
@@ -235,7 +238,7 @@ Add baml_elixir to your mix.exs:
 ```elixir
 def deps do
   [
-    {:baml_elixir, "~> 1.0.0-pre.20"}
+    {:baml_elixir, "~> 1.0.0-pre.21"}
   ]
 end
 ```
