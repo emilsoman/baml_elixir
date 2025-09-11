@@ -110,6 +110,35 @@ defmodule BamlElixir.Client do
     end)
   end
 
+  @doc """
+  Streams partial output and also blocks until the function is done.
+  Finally returns {:ok, result} or {:error, error}
+  """
+  def sync_stream(function_name, args, callback, opts \\ %{}) do
+    pid = self()
+
+    stream(
+      function_name,
+      args,
+      fn
+        {:partial, result} ->
+          callback.(result)
+
+        result ->
+          send(pid, {:done, result})
+      end,
+      opts
+    )
+
+    receive do
+      {:done, {:error, error}} ->
+        {:error, error}
+
+      {:done, {:done, result}} ->
+        {:ok, result}
+    end
+  end
+
   def app_path(path) do
     case path do
       {app, path} ->
@@ -298,6 +327,20 @@ defmodule BamlElixir.Client do
               |> Map.put(:prefix, unquote(module))
 
             BamlElixir.Client.stream(unquote(function_name), args, callback, opts)
+          end
+
+          @spec sync_stream(
+                  %{unquote_splicing(param_types)},
+                  (unquote(return_type) -> any()),
+                  map()
+                ) :: {:ok, unquote(return_type)} | {:error, String.t()}
+          def sync_stream(args, callback, opts \\ %{}) do
+            opts =
+              opts
+              |> Map.put(:path, BamlElixir.Client.app_path(unquote(path)))
+              |> Map.put(:prefix, unquote(module))
+
+            BamlElixir.Client.sync_stream(unquote(function_name), args, callback, opts)
           end
         end
       end

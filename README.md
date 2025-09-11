@@ -90,6 +90,20 @@ MyApp.BamlClient.ExtractResume.stream(%{resume: "John Doe is the CTO of Acme Inc
 end)
 ```
 
+You can also use `sync_stream` to get partial results and block until the function is done.
+
+```elixir
+case MyApp.BamlClient.ExtractResume.sync_stream(%{resume: "John Doe is the CTO of Acme Inc."}, fn result ->
+  IO.inspect(result)
+end) do
+  {:ok, result} ->
+    IO.inspect(result)
+
+  {:error, error} ->
+    IO.inspect(error)
+end
+```
+
 ### Images
 
 Send an image URL:

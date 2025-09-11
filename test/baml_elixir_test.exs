@@ -28,6 +28,20 @@ defmodule BamlElixirTest do
            ]
   end
 
+  test "parsing into a struct with sync_stream" do
+    {:ok, agent_pid} = Agent.start_link(fn -> 0 end, name: :counter)
+
+    assert {:ok, %BamlElixirTest.Person{name: "John Doe", age: 28}} =
+             BamlElixirTest.ExtractPerson.sync_stream(
+               %{info: "John Doe, 28, Engineer"},
+               fn _result ->
+                 Agent.update(agent_pid, fn count -> count + 1 end)
+               end
+             )
+
+    assert Agent.get(agent_pid, fn count -> count end) > 1
+  end
+
   test "bool input and output" do
     assert {:ok, true} = BamlElixirTest.FlipSwitch.call(%{switch: false})
   end
