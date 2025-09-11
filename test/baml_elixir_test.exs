@@ -28,6 +28,10 @@ defmodule BamlElixirTest do
            ]
   end
 
+  test "bool input and output" do
+    assert {:ok, true} = BamlElixirTest.FlipSwitch.call(%{switch: false})
+  end
+
   test "parses into a struct with a type builder" do
     assert {:ok,
             %{

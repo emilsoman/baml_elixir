@@ -124,3 +124,13 @@ function ParseAttendees(attendees: string) -> Attendees {
     {{ attendees }}
   "#
 }
+
+function FlipSwitch(switch: bool) -> bool {
+  client GPT4
+  prompt #"
+    Flip the switch:
+    {{ switch }}
+
+    {{ ctx.output_format }}
+  "#
+}

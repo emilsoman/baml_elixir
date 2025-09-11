@@ -4,6 +4,7 @@ use baml_runtime::type_builder::TypeBuilder;
 use baml_runtime::{BamlRuntime, FunctionResult, RuntimeContextManager};
 use baml_types::ir_type::UnionTypeViewGeneric;
 use baml_types::{BamlMap, BamlValue, LiteralValue, TypeIR};
+use rustler::types::atom;
 
 use collector::{FunctionLog, Usage};
 use rustler::{
@@ -14,9 +15,6 @@ use std::path::Path;
 use std::sync::Arc;
 mod atoms {
     rustler::atoms! {
-        ok,
-        error,
-        nil,
         partial,
         done,
     }
@@ -67,8 +65,16 @@ fn term_to_baml_value<'a>(term: Term<'a>) -> Result<BamlValue, Error> {
         return Ok(BamlValue::Map(map));
     }
 
-    if term.is_atom() && term.decode::<rustler::Atom>()? == atoms::nil() {
+    if term.is_atom() && term.decode::<rustler::Atom>()? == atom::nil() {
         return Ok(BamlValue::Null);
+    }
+
+    if term.is_atom() && term.decode::<rustler::Atom>()? == atom::true_() {
+        return Ok(BamlValue::Bool(true));
+    }
+
+    if term.is_atom() && term.decode::<rustler::Atom>()? == atom::false_() {
+        return Ok(BamlValue::Bool(false));
     }
 
     Err(Error::Term(Box::new(format!(
@@ -83,7 +89,7 @@ fn baml_value_to_term<'a>(env: Env<'a>, value: &BamlValue) -> NifResult<Term<'a>
         BamlValue::Int(i) => Ok(i.encode(env)),
         BamlValue::Float(f) => Ok(f.encode(env)),
         BamlValue::Bool(b) => Ok(b.encode(env)),
-        BamlValue::Null => Ok(atoms::nil().encode(env)),
+        BamlValue::Null => Ok(atom::nil().encode(env)),
         BamlValue::List(items) => {
             let terms: Result<Vec<Term>, Error> = items
                 .iter()
@@ -196,27 +202,26 @@ fn prepare_request<'a>(
         Some(collectors.iter().map(|c| c.inner.clone()).collect())
     };
 
-    let client_registry = if client_registry.is_atom()
-        && client_registry.decode::<rustler::Atom>()? == atoms::nil()
-    {
-        None
-    } else if client_registry.is_map() {
-        let mut registry = ClientRegistry::new();
-        let iter = MapIterator::new(client_registry)
-            .ok_or(Error::Term(Box::new("Invalid registry map")))?;
-        for (key_term, value_term) in iter {
-            let key = term_to_string(key_term)?;
-            if key == "primary" {
-                let primary = term_to_string(value_term)?;
-                registry.set_primary(primary);
+    let client_registry =
+        if client_registry.is_atom() && client_registry.decode::<rustler::Atom>()? == atom::nil() {
+            None
+        } else if client_registry.is_map() {
+            let mut registry = ClientRegistry::new();
+            let iter = MapIterator::new(client_registry)
+                .ok_or(Error::Term(Box::new("Invalid registry map")))?;
+            for (key_term, value_term) in iter {
+                let key = term_to_string(key_term)?;
+                if key == "primary" {
+                    let primary = term_to_string(value_term)?;
+                    registry.set_primary(primary);
+                }
             }
-        }
-        Some(registry)
-    } else {
-        return Err(Error::Term(Box::new(
-            "Client registry must be nil or a map",
-        )));
-    };
+            Some(registry)
+        } else {
+            return Err(Error::Term(Box::new(
+                "Client registry must be nil or a map",
+            )));
+        };
 
     let tb = if tb_elixir.is_list() {
         let builder = TypeBuilder::new();
@@ -240,10 +245,10 @@ fn parse_function_result_call<'a>(env: Env<'a>, result: FunctionResult) -> NifRe
         Some(Ok(response_baml_value)) => {
             let baml_value = response_baml_value.0.clone().value();
             let result_term = baml_value_to_term(env, &baml_value)?;
-            Ok((atoms::ok(), result_term).encode(env))
+            Ok((atom::ok(), result_term).encode(env))
         }
-        Some(Err(e)) => Ok((atoms::error(), format!("{:?}", e)).encode(env)),
-        None => Ok((atoms::error(), "No parsed value available").encode(env)),
+        Some(Err(e)) => Ok((atom::error(), format!("{:?}", e)).encode(env)),
+        None => Ok((atom::error(), "No parsed value available").encode(env)),
     }
 }
 
@@ -291,7 +296,7 @@ fn call<'a>(
     // Handle result
     match result {
         Ok(function_result) => parse_function_result_call(env, function_result),
-        Err(e) => Ok((atoms::error(), format!("{:?}", e)).encode(env)),
+        Err(e) => Ok((atom::error(), format!("{:?}", e)).encode(env)),
     }
 }
 
@@ -354,13 +359,13 @@ fn stream<'a>(
                         let result_term = baml_value_to_term(env, &baml_value)?;
                         Ok((atoms::done(), result_term).encode(env))
                     }
-                    Some(Err(e)) => Ok((atoms::error(), format!("{:?}", e)).encode(env)),
-                    None => Ok((atoms::error(), "No parsed value available").encode(env)),
+                    Some(Err(e)) => Ok((atom::error(), format!("{:?}", e)).encode(env)),
+                    None => Ok((atom::error(), "No parsed value available").encode(env)),
                 },
-                Err(e) => Ok((atoms::error(), format!("{:?}", e)).encode(env)),
+                Err(e) => Ok((atom::error(), format!("{:?}", e)).encode(env)),
             }
         }
-        Err(e) => Ok((atoms::error(), format!("{:?}", e)).encode(env)),
+        Err(e) => Ok((atom::error(), format!("{:?}", e)).encode(env)),
     }
 }
 
@@ -533,7 +538,7 @@ fn to_elixir_type<'a>(env: Env<'a>, field_type: &TypeIR) -> Term<'a> {
                 baml_types::TypeValue::Int => rustler::Atom::from_str(env, "integer").unwrap(),
                 baml_types::TypeValue::Float => rustler::Atom::from_str(env, "float").unwrap(),
                 baml_types::TypeValue::Bool => rustler::Atom::from_str(env, "boolean").unwrap(),
-                baml_types::TypeValue::Null => atoms::nil(),
+                baml_types::TypeValue::Null => atom::nil(),
                 baml_types::TypeValue::Media(_) => rustler::Atom::from_str(env, "media").unwrap(),
             };
             (
@@ -556,7 +561,7 @@ fn to_elixir_type<'a>(env: Env<'a>, field_type: &TypeIR) -> Term<'a> {
                 .encode(env)
         }
         TypeIR::Union(inner, _) => match inner.view() {
-            UnionTypeViewGeneric::Null => (atoms::nil()).encode(env),
+            UnionTypeViewGeneric::Null => (atom::nil()).encode(env),
             UnionTypeViewGeneric::Optional(inner) => {
                 // Return {:optional, type}
                 let inner_type = to_elixir_type(env, inner);
