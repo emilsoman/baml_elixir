@@ -19,6 +19,16 @@ defmodule BamlElixir.Client do
     path = Keyword.get(opts, :path, "baml_src")
     {baml_src_path, _} = Code.eval_quoted(app_path(path), [], __CALLER__)
 
+    # Get all .baml files in the directory
+    baml_files = get_baml_files(baml_src_path)
+
+    # Add @external_resource for each BAML file to establish compile-time dependencies
+    for baml_file <- baml_files do
+      quote do
+        @external_resource unquote(baml_file)
+      end
+    end
+
     # Get BAML types
     baml_types = BamlElixir.Native.parse_baml(baml_src_path)
     baml_class_types = baml_types[:classes]
@@ -28,6 +38,7 @@ defmodule BamlElixir.Client do
     baml_class_types_quoted = generate_class_types(baml_class_types, __CALLER__)
     baml_enum_types_quoted = generate_enum_types(baml_enum_types, __CALLER__)
     baml_functions_quoted = generate_function_modules(baml_functions, path, __CALLER__)
+    recompile_function = generate_recompile_function(baml_src_path, baml_files)
 
     quote do
       import BamlElixir.Client
@@ -35,6 +46,7 @@ defmodule BamlElixir.Client do
       unquote(baml_class_types_quoted)
       unquote(baml_enum_types_quoted)
       unquote(baml_functions_quoted)
+      unquote(recompile_function)
     end
   end
 
@@ -105,6 +117,46 @@ defmodule BamlElixir.Client do
 
       _ ->
         path
+    end
+  end
+
+  # Get all .baml files in the specified directory
+  def get_baml_files(baml_src_path) do
+    if File.exists?(baml_src_path) and File.dir?(baml_src_path) do
+      Path.wildcard(Path.join(baml_src_path, "**/*.baml"))
+    else
+      []
+    end
+  end
+
+  # Create a hash from a list of file paths
+  def create_files_hash(file_paths) do
+    file_paths
+    |> Enum.map(&File.stat!/1)
+    |> Enum.map(fn stat -> {stat.mtime, stat.size} end)
+    |> inspect()
+    |> :erlang.md5()
+  end
+
+  # Generate the __mix_recompile__?/0 function that checks if any .baml files have changed
+  defp generate_recompile_function(baml_src_path, baml_files) do
+    # Create a hash of all BAML files at compile time
+    files_hash = create_files_hash(baml_files)
+
+    quote do
+      def __mix_recompile__?() do
+        baml_src_path = unquote(baml_src_path)
+
+        # Check if the directory still exists
+        if not File.exists?(baml_src_path) or not File.dir?(baml_src_path) do
+          true
+        else
+          # Get current BAML files and compare hashes
+          current_baml_files = BamlElixir.Client.get_baml_files(baml_src_path)
+          current_files_hash = BamlElixir.Client.create_files_hash(current_baml_files)
+          current_files_hash != unquote(files_hash)
+        end
+      end
     end
   end
 
