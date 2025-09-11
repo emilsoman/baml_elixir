@@ -1,7 +1,7 @@
 defmodule BamlElixir.MixProject do
   use Mix.Project
 
-  @version "1.0.0-pre.19"
+  @version "1.0.0-pre.20"
 
   def project do
     [
