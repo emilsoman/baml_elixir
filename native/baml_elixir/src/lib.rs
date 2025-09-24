@@ -1,7 +1,7 @@
 use baml_runtime::client_registry::ClientRegistry;
 use baml_runtime::tracingv2::storage::storage::Collector;
 use baml_runtime::type_builder::TypeBuilder;
-use baml_runtime::{BamlRuntime, FunctionResult, RuntimeContextManager};
+use baml_runtime::{BamlRuntime, FunctionResult, RuntimeContextManager, TripWire};
 use baml_types::ir_type::UnionTypeViewGeneric;
 use baml_types::{BamlMap, BamlValue, LiteralValue, TypeIR};
 use rustler::types::atom;
@@ -172,7 +172,11 @@ fn prepare_request<'a>(
     ),
     Error,
 > {
-    let runtime = match BamlRuntime::from_directory(&Path::new(&path), std::env::vars().collect()) {
+    let runtime = match BamlRuntime::from_directory(
+        &Path::new(&path),
+        std::env::vars().collect(),
+        internal_baml_core::feature_flags::FeatureFlags::new(),
+    ) {
         Ok(r) => r,
         Err(e) => return Err(Error::Term(Box::new(e.to_string()))),
     };
@@ -291,6 +295,7 @@ fn call<'a>(
         client_registry.as_ref(), // client registry (optional)
         collectors,
         std::env::vars().collect(),
+        TripWire::new(None), // TODO: Add tripwire
     );
 
     // Handle result
@@ -340,6 +345,7 @@ fn stream<'a>(
         client_registry.as_ref(),
         collectors,
         std::env::vars().collect(),
+        TripWire::new(None), // TODO: Add tripwire
     );
 
     match result {
@@ -391,7 +397,11 @@ fn parse_baml(env: Env, path: Option<String>) -> NifResult<Term> {
     let path = path.unwrap_or_else(|| "baml_src".to_string());
 
     // Create runtime
-    let runtime = match BamlRuntime::from_directory(&Path::new(&path), std::env::vars().collect()) {
+    let runtime = match BamlRuntime::from_directory(
+        &Path::new(&path),
+        std::env::vars().collect(),
+        internal_baml_core::feature_flags::FeatureFlags::new(),
+    ) {
         Ok(r) => r,
         Err(e) => return Err(Error::Term(Box::new(e.to_string()))),
     };
@@ -507,6 +517,10 @@ fn parse_baml(env: Env, path: Option<String>) -> NifResult<Term> {
 
 fn to_elixir_type<'a>(env: Env<'a>, field_type: &TypeIR) -> Term<'a> {
     match field_type {
+        TypeIR::Top(_) => panic!(
+            "TypeIR::Top should have been resolved by the compiler before code generation. \
+             This indicates a bug in the type resolution phase."
+        ),
         TypeIR::Enum { name, .. } => {
             // Return {:enum, name}
             (rustler::Atom::from_str(env, "enum").unwrap(), name).encode(env)
