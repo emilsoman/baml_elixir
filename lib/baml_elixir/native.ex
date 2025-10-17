@@ -8,7 +8,8 @@ defmodule BamlElixir.Native do
     version: version,
     targets: [
       "aarch64-apple-darwin",
-      "x86_64-unknown-linux-gnu"
+      "x86_64-unknown-linux-gnu",
+      "aarch64-unknown-linux-gnu"
     ]
 
   def call(_function_name, _args, _path, _collectors, _client_registry, _tb),

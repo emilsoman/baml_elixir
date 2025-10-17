@@ -238,7 +238,7 @@ Add baml_elixir to your mix.exs:
 ```elixir
 def deps do
   [
-    {:baml_elixir, "~> 1.0.0-pre.22"}
+    {:baml_elixir, "~> 1.0.0-pre.23"}
   ]
 end
 ```
@@ -247,6 +247,7 @@ This also downloads the pre built NIFs for these targets:
 
 - aarch64-apple-darwin (Apple Silicon)
 - x86_64-unknown-linux-gnu
+- aarch64-unknown-linux-gnu
 
 If you need to build the NIFs for other targets, you need to clone the repo and build it locally as documented below.
 
