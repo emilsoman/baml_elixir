@@ -109,6 +109,159 @@ defmodule BamlElixirTest do
              BamlElixirTest.WhichModelUnion.call(%{}, %{client_registry: client_registry})
   end
 
+  @tag :type_builder
+  test "type builder with nullable union field (string present)" do
+    response_json =
+      Jason.encode!(%{
+        "employee_id" => "EMP-123",
+        "nickname" => "Johnny"
+      })
+
+    BamlElixirTest.FakeOpenAIServer.expect_chat_completion(response_json)
+    base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
+
+    client_registry = %{
+      primary: "InjectedClient",
+      clients: [
+        %{
+          name: "InjectedClient",
+          provider: "openai-generic",
+          retry_policy: nil,
+          options: %{
+            base_url: base_url,
+            api_key: "test-key",
+            model: "gpt-4o-mini"
+          }
+        }
+      ]
+    }
+
+    assert {:ok,
+            %{
+              __baml_class__: "NewEmployeeFullyDynamic",
+              employee_id: "EMP-123",
+              nickname: "Johnny"
+            }} =
+             BamlElixirTest.CreateEmployee.call(%{}, %{
+               client_registry: client_registry,
+               tb: [
+                 %TypeBuilder.Class{
+                   name: "NewEmployeeFullyDynamic",
+                   fields: [
+                     %TypeBuilder.Field{
+                       name: "nickname",
+                       type: %TypeBuilder.Union{types: [:string, :null]}
+                     }
+                   ]
+                 }
+               ]
+             })
+  end
+
+  @tag :type_builder
+  test "type builder with nullable union field (null value)" do
+    response_json =
+      Jason.encode!(%{
+        "employee_id" => "EMP-456",
+        "nickname" => nil
+      })
+
+    BamlElixirTest.FakeOpenAIServer.expect_chat_completion(response_json)
+    base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
+
+    client_registry = %{
+      primary: "InjectedClient",
+      clients: [
+        %{
+          name: "InjectedClient",
+          provider: "openai-generic",
+          retry_policy: nil,
+          options: %{
+            base_url: base_url,
+            api_key: "test-key",
+            model: "gpt-4o-mini"
+          }
+        }
+      ]
+    }
+
+    assert {:ok,
+            %{
+              __baml_class__: "NewEmployeeFullyDynamic",
+              employee_id: "EMP-456",
+              nickname: nil
+            }} =
+             BamlElixirTest.CreateEmployee.call(%{}, %{
+               client_registry: client_registry,
+               tb: [
+                 %TypeBuilder.Class{
+                   name: "NewEmployeeFullyDynamic",
+                   fields: [
+                     %TypeBuilder.Field{
+                       name: "nickname",
+                       type: %TypeBuilder.Union{types: [:string, :null]}
+                     }
+                   ]
+                 }
+               ]
+             })
+  end
+
+  @tag :type_builder
+  test "type builder with multiple nullable fields (mixed present and null)" do
+    response_json =
+      Jason.encode!(%{
+        "employee_id" => "EMP-789",
+        "nickname" => "Jane",
+        "department" => nil
+      })
+
+    BamlElixirTest.FakeOpenAIServer.expect_chat_completion(response_json)
+    base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
+
+    client_registry = %{
+      primary: "InjectedClient",
+      clients: [
+        %{
+          name: "InjectedClient",
+          provider: "openai-generic",
+          retry_policy: nil,
+          options: %{
+            base_url: base_url,
+            api_key: "test-key",
+            model: "gpt-4o-mini"
+          }
+        }
+      ]
+    }
+
+    assert {:ok,
+            %{
+              __baml_class__: "NewEmployeeFullyDynamic",
+              employee_id: "EMP-789",
+              nickname: "Jane",
+              department: nil
+            }} =
+             BamlElixirTest.CreateEmployee.call(%{}, %{
+               client_registry: client_registry,
+               tb: [
+                 %TypeBuilder.Class{
+                   name: "NewEmployeeFullyDynamic",
+                   fields: [
+                     %TypeBuilder.Field{
+                       name: "nickname",
+                       type: %TypeBuilder.Union{types: [:string, :null]}
+                     },
+                     %TypeBuilder.Field{
+                       name: "department",
+                       type: %TypeBuilder.Union{types: [:string, :null]}
+                     }
+                   ]
+                 }
+               ]
+             })
+  end
+
   test "parses into a struct" do
     assert {:ok, %BamlElixirTest.Person{name: "John Doe", age: 28}} =
              BamlElixirTest.ExtractPerson.call(%{info: "John Doe, 28, Engineer"})
