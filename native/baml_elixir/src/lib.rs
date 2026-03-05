@@ -389,6 +389,7 @@ fn call<'a>(
         client_registry.as_ref(), // client registry (optional)
         collectors,
         std::env::vars().collect(),
+        None,                // tags
         TripWire::new(None), // TODO: Add tripwire
     );
 
@@ -440,6 +441,7 @@ fn stream<'a>(
         collectors,
         std::env::vars().collect(),
         TripWire::new(None), // TODO: Add tripwire
+        None,                // tags
     );
 
     match result {
@@ -500,7 +502,7 @@ fn parse_baml(env: Env, path: Option<String>) -> NifResult<Term> {
         Err(e) => return Err(Error::Term(Box::new(e.to_string()))),
     };
 
-    let ir = runtime.inner.ir.clone();
+    let ir = runtime.ir.clone();
 
     // Create a map of the classes and their fields along with their types
     let mut class_fields = HashMap::new();
