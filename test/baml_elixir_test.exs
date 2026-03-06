@@ -109,6 +109,74 @@ defmodule BamlElixirTest do
              BamlElixirTest.WhichModelUnion.call(%{}, %{client_registry: client_registry})
   end
 
+  @tag :collector
+  test "collector usage includes cached_input_tokens from fake server" do
+    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT", %{}, %{cached_tokens: 42})
+    base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
+
+    client_registry = %{
+      primary: "InjectedClient",
+      clients: [
+        %{
+          name: "InjectedClient",
+          provider: "openai-generic",
+          retry_policy: nil,
+          options: %{
+            base_url: base_url,
+            api_key: "test-key",
+            model: "gpt-4o-mini"
+          }
+        }
+      ]
+    }
+
+    collector = BamlElixir.Collector.new("test-collector")
+
+    assert {:ok, "GPT"} =
+             BamlElixirTest.WhichModelUnion.call(%{}, %{
+               client_registry: client_registry,
+               collectors: [collector]
+             })
+
+    usage = BamlElixir.Collector.usage(collector)
+    assert usage["input_tokens"] == 1
+    assert usage["output_tokens"] == 1
+    assert usage["cached_input_tokens"] == 42
+  end
+
+  @tag :collector
+  test "collector usage returns zero cached_input_tokens when none cached" do
+    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT")
+    base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
+
+    client_registry = %{
+      primary: "InjectedClient",
+      clients: [
+        %{
+          name: "InjectedClient",
+          provider: "openai-generic",
+          retry_policy: nil,
+          options: %{
+            base_url: base_url,
+            api_key: "test-key",
+            model: "gpt-4o-mini"
+          }
+        }
+      ]
+    }
+
+    collector = BamlElixir.Collector.new("test-collector")
+
+    assert {:ok, "GPT"} =
+             BamlElixirTest.WhichModelUnion.call(%{}, %{
+               client_registry: client_registry,
+               collectors: [collector]
+             })
+
+    usage = BamlElixir.Collector.usage(collector)
+    assert usage["cached_input_tokens"] == 0
+  end
+
   test "parses into a struct" do
     assert {:ok, %BamlElixirTest.Person{name: "John Doe", age: 28}} =
              BamlElixirTest.ExtractPerson.call(%{info: "John Doe, 28, Engineer"})
