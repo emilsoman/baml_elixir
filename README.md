@@ -246,8 +246,10 @@ end
 This also downloads the pre built NIFs for these targets:
 
 - aarch64-apple-darwin (Apple Silicon)
-- x86_64-unknown-linux-gnu
-- aarch64-unknown-linux-gnu
+- x86_64-unknown-linux-gnu (Linux x86_64)
+- aarch64-unknown-linux-gnu (Linux ARM64)
+- x86_64-unknown-linux-musl (Alpine Linux x86_64)
+- aarch64-unknown-linux-musl (Alpine Linux ARM64)
 
 If you need to build the NIFs for other targets, you need to clone the repo and build it locally as documented below.
 

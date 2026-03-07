@@ -65,6 +65,8 @@ impl Encoder for Usage {
             .unwrap()
             .map_put("output_tokens", self.inner.output_tokens)
             .unwrap()
+            .map_put("cached_input_tokens", self.inner.cached_input_tokens)
+            .unwrap()
     }
 }
 
