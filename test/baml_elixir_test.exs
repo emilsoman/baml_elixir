@@ -53,7 +53,7 @@ defmodule BamlElixirTest do
 
   @tag :client_registry
   test "client_registry can inject and select a client not present in the BAML files (success path)" do
-    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT")
+    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4")
     base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
 
     client_registry = %{
@@ -74,13 +74,13 @@ defmodule BamlElixirTest do
 
     # This function declares `client GPT4` in the .baml file, so success here proves
     # `client_registry.primary` overrides the static client selection.
-    assert {:ok, "GPT"} =
+    assert {:ok, "GPT4"} =
              BamlElixirTest.WhichModelUnion.call(%{}, %{client_registry: client_registry})
   end
 
   @tag :client_registry
   test "client_registry passes clients[].options.headers into the HTTP request" do
-    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT", %{
+    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4", %{
       "x-test-header" => "hello-from-elixir"
     })
 
@@ -105,13 +105,13 @@ defmodule BamlElixirTest do
       ]
     }
 
-    assert {:ok, "GPT"} =
+    assert {:ok, "GPT4"} =
              BamlElixirTest.WhichModelUnion.call(%{}, %{client_registry: client_registry})
   end
 
   @tag :collector
   test "collector usage includes cached_input_tokens from fake server" do
-    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT", %{}, %{cached_tokens: 42})
+    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4", %{}, %{cached_tokens: 42})
     base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
 
     client_registry = %{
@@ -132,7 +132,7 @@ defmodule BamlElixirTest do
 
     collector = BamlElixir.Collector.new("test-collector")
 
-    assert {:ok, "GPT"} =
+    assert {:ok, "GPT4"} =
              BamlElixirTest.WhichModelUnion.call(%{}, %{
                client_registry: client_registry,
                collectors: [collector]
@@ -146,7 +146,7 @@ defmodule BamlElixirTest do
 
   @tag :collector
   test "collector usage returns zero cached_input_tokens when none cached" do
-    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT")
+    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4")
     base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
 
     client_registry = %{
@@ -167,7 +167,7 @@ defmodule BamlElixirTest do
 
     collector = BamlElixir.Collector.new("test-collector")
 
-    assert {:ok, "GPT"} =
+    assert {:ok, "GPT4"} =
              BamlElixirTest.WhichModelUnion.call(%{}, %{
                client_registry: client_registry,
                collectors: [collector]
@@ -345,14 +345,14 @@ defmodule BamlElixirTest do
 
   test "change default model" do
     assert BamlElixirTest.WhichModel.call(%{}, %{llm_client: "GPT4"}) == {:ok, :GPT4oMini}
-    assert BamlElixirTest.WhichModel.call(%{}, %{llm_client: "DeepSeekR1"}) == {:ok, :DeepSeekR1}
+    assert BamlElixirTest.WhichModel.call(%{}, %{llm_client: "Claude"}) == {:ok, :Claude}
   end
 
   test "get union type" do
-    assert BamlElixirTest.WhichModelUnion.call(%{}, %{llm_client: "GPT4"}) == {:ok, "GPT"}
+    assert BamlElixirTest.WhichModelUnion.call(%{}, %{llm_client: "GPT4"}) == {:ok, "GPT4"}
 
-    assert BamlElixirTest.WhichModelUnion.call(%{}, %{llm_client: "DeepSeekR1"}) ==
-             {:ok, "DeepSeek"}
+    assert BamlElixirTest.WhichModelUnion.call(%{}, %{llm_client: "Claude"}) ==
+             {:ok, "Claude"}
   end
 
   test "Error when parsing the output of a function" do
@@ -366,7 +366,7 @@ defmodule BamlElixirTest do
              {:ok, :GPT4oMini}
 
     usage = BamlElixir.Collector.usage(collector)
-    assert usage["input_tokens"] == 33
+    assert usage["input_tokens"] == 30
     assert usage["output_tokens"] > 0
   end
 

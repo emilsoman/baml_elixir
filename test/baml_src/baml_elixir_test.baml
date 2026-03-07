@@ -7,12 +7,11 @@ client GPT4 {
     }
 }
 
-client DeepSeekR1 {
-  provider openai-generic
+client Claude {
+  provider anthropic
   options {
-    base_url "https://api.together.ai/v1"
-    api_key env.TOGETHER_API_KEY
-    model "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free"
+    model claude-3-haiku-20240307
+    api_key env.ANTHROPIC_API_KEY
   }
 }
 
@@ -57,7 +56,7 @@ function DescribeImage(myImg: image) -> string {
 }
 
 enum Model {
-  DeepSeekR1
+  Claude
   GPT4oMini
 }
 
@@ -89,7 +88,7 @@ function WhichModel() -> Model {
     "#
 }
 
-function WhichModelUnion() -> "DeepSeek" | "GPT" {
+function WhichModelUnion() -> "Claude" | "GPT4" {
   client GPT4
   prompt #"
     Which model are you?
