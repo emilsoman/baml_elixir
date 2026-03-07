@@ -18,6 +18,14 @@ defmodule BamlElixirTest.FakeOpenAIServer do
   @spec expect_chat_completion(String.t(), expected_headers()) :: :ok
   def expect_chat_completion(response_content, expected_headers \\ %{})
       when is_binary(response_content) and is_map(expected_headers) do
+    expect_chat_completion(response_content, expected_headers, %{})
+  end
+
+  @spec expect_chat_completion(String.t(), expected_headers(), map()) :: :ok
+  def expect_chat_completion(response_content, expected_headers, opts)
+      when is_binary(response_content) and is_map(expected_headers) and is_map(opts) do
+    cached_tokens = Map.get(opts, :cached_tokens, 0)
+
     body =
       Jason.encode!(%{
         "id" => "chatcmpl-test",
@@ -31,7 +39,12 @@ defmodule BamlElixirTest.FakeOpenAIServer do
             "finish_reason" => "stop"
           }
         ],
-        "usage" => %{"prompt_tokens" => 1, "completion_tokens" => 1, "total_tokens" => 2}
+        "usage" => %{
+          "prompt_tokens" => 1,
+          "completion_tokens" => 1,
+          "total_tokens" => 2,
+          "prompt_tokens_details" => %{"cached_tokens" => cached_tokens, "audio_tokens" => 0}
+        }
       })
 
     normalized_expected_headers =
