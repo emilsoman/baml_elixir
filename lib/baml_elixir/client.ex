@@ -120,7 +120,7 @@ defmodule BamlElixir.Client do
             native.abort_tripwire(tripwire)
 
           {:DOWN, ^stream_ref, :process, ^stream_worker, _} ->
-            :ok
+            native.abort_tripwire(tripwire)
         end
       end)
 
