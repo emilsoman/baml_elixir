@@ -133,3 +133,29 @@ function FlipSwitch(switch: bool) -> bool {
     {{ ctx.output_format }}
   "#
 }
+
+class Tool {
+  reasoning string
+  @@dynamic
+}
+
+class WeatherTool {
+  city string @description("The city to fetch the weather for")
+}
+
+class ToNumberTool {
+  number int @description("The string to convert to a number")
+}
+
+function Agent(message: string) -> Tool | "error" {
+  client GPT4
+  prompt #"
+    Based on the message, choose a tool to call.
+    If no tool can be chosen, return "error".
+
+    {{ ctx.output_format }}
+
+    {{ _.role("user") }}
+    {{ message }}
+  "#
+}

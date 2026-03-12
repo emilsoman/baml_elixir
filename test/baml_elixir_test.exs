@@ -478,6 +478,98 @@ defmodule BamlElixirTest do
              })
   end
 
+  test "Agent with type builder returns Tool with reasoning and tool (union of BAML tool classes)" do
+    assert {:ok, result} =
+             BamlElixirTest.Agent.call(
+               %{message: "What's the weather in Paris?"},
+               %{tb: build_tool_type(["WeatherTool", "ToNumberTool"])}
+             )
+
+    assert %{
+             tool: %{__baml_class__: "WeatherTool", city: "Paris"},
+             __baml_class__: "Tool",
+             reasoning: _reasoning
+           } = result
+
+    assert {:ok, "error"} =
+             BamlElixirTest.Agent.call(
+               %{message: "What's the weather in Paris?"},
+               %{tb: build_tool_type(["ToNumberTool"])}
+             )
+
+    assert {:ok, result} =
+             BamlElixirTest.Agent.call(
+               %{message: "Convert hundred and one to a number"},
+               %{tb: build_tool_type(["ToNumberTool"])}
+             )
+
+    assert %{
+             tool: %{number: 101, __baml_class__: "ToNumberTool"},
+             __baml_class__: "Tool",
+             reasoning: _reasoning
+           } = result
+  end
+
+  test "Agent with type builder with names returns Tool with reasoning and tool (union of BAML tool classes)" do
+    assert {:ok, result} =
+             BamlElixirTest.Agent.call(
+               %{message: "Convert hundred and one to a number"},
+               %{tb: build_tool_type_with_names(["ToNumberTool"])}
+             )
+
+    assert %{
+             __baml_class__: "Tool",
+             reasoning: _reasoning,
+             tool: %{
+               __baml_class__: "ToolChoice_ToNumberTool",
+               args: %{number: 101, __baml_class__: "ToNumberTool"},
+               name: "ToNumberTool"
+             }
+           } = result
+  end
+
+  defp build_tool_type(tool_names) when is_list(tool_names) do
+    tool_union = %TypeBuilder.Union{
+      types: Enum.map(tool_names, fn name -> %TypeBuilder.Class{name: name} end)
+    }
+
+    [
+      %TypeBuilder.Class{
+        name: "Tool",
+        fields: [
+          %TypeBuilder.Field{name: "tool", type: tool_union}
+        ]
+      }
+    ]
+  end
+
+  defp build_tool_type_with_names(tool_names) when is_list(tool_names) do
+    tool_union = %TypeBuilder.Union{
+      types:
+        Enum.map(tool_names, fn name ->
+          %TypeBuilder.Class{
+            name: "ToolChoice_#{name}",
+            fields: [
+              %TypeBuilder.Field{
+                name: "name",
+                type: %TypeBuilder.Literal{value: name}
+              },
+              %TypeBuilder.Field{name: "args", type: %TypeBuilder.Class{name: name}}
+            ]
+          }
+        end)
+    }
+
+    [
+      %TypeBuilder.Class{
+        name: "Tool",
+        fields: [
+          %TypeBuilder.Field{name: "tool", type: tool_union}
+        ]
+      }
+    ]
+  end
+
   defp wait_for_all_messages(messages \\ []) do
     receive do
       {:partial, _} = message ->
