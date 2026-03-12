@@ -168,10 +168,6 @@ defmodule BamlElixir.Client do
     end
   end
 
-  defp native_module do
-    Application.get_env(:baml_elixir, :native_module, BamlElixir.NativeWrapper)
-  end
-
   # Get all .baml files in the specified directory
   def get_baml_files(baml_src_path) do
     if File.exists?(baml_src_path) and File.dir?(baml_src_path) do
@@ -188,6 +184,10 @@ defmodule BamlElixir.Client do
     |> Enum.map(fn stat -> {stat.mtime, stat.size} end)
     |> inspect()
     |> :erlang.md5()
+  end
+
+  defp native_module do
+    Application.get_env(:baml_elixir, :native_module, BamlElixir.Native)
   end
 
   # Generate the __mix_recompile__?/0 function that checks if any .baml files have changed
