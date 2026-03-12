@@ -1,7 +1,7 @@
 use crate::Error;
 use baml_runtime::type_builder::{TypeBuilder, WithMeta};
 use baml_types::{ir_type::UnionConstructor, LiteralValue, TypeIR};
-use rustler::{Env, MapIterator, Term};
+use rustler::{types::atom, Atom, Env, MapIterator, Term};
 
 pub fn parse_type_builder_spec<'a>(
     env: Env<'a>,
@@ -184,7 +184,11 @@ fn parse_enum_value_item<'a>(
                 value_name = Some(term_to_string(value_term)?);
             }
             "description" => {
-                description = Some(term_to_string(value_term)?);
+                // Treat `nil` as absence of description
+                if !(value_term.is_atom() && value_term.decode::<Atom>().ok() == Some(atom::nil()))
+                {
+                    description = Some(term_to_string(value_term)?);
+                }
             }
             _ => {}
         }
@@ -230,7 +234,11 @@ fn parse_field_item<'a>(
                 field_type = Some(value_term);
             }
             "description" => {
-                description = Some(term_to_string(value_term)?);
+                // Treat `nil` as absence of description
+                if !(value_term.is_atom() && value_term.decode::<Atom>().ok() == Some(atom::nil()))
+                {
+                    description = Some(term_to_string(value_term)?);
+                }
             }
             _ => {}
         }
