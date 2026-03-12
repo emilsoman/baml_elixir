@@ -104,8 +104,7 @@ defmodule BamlElixirTest do
 
   @tag :collector
   test "collector usage includes cached_input_tokens from fake server" do
-    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4", %{}, %{cached_tokens: 42})
-    base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
+    base_url = BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4", %{}, %{cached_tokens: 42})
 
     client_registry = %{
       primary: "InjectedClient",
@@ -139,8 +138,7 @@ defmodule BamlElixirTest do
 
   @tag :collector
   test "collector usage returns zero cached_input_tokens when none cached" do
-    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4")
-    base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
+    base_url = BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4")
 
     client_registry = %{
       primary: "InjectedClient",
