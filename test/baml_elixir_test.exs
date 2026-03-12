@@ -2,14 +2,9 @@ defmodule BamlElixirTest do
   use ExUnit.Case
   use BamlElixir.Client, path: "test/baml_src"
 
-  import Mox
-
   alias BamlElixir.TypeBuilder
 
   doctest BamlElixir
-
-  setup :set_mox_from_context
-  setup :verify_on_exit!
 
   @tag :client_registry
   test "client_registry supports clients key (list form)" do
@@ -53,8 +48,7 @@ defmodule BamlElixirTest do
 
   @tag :client_registry
   test "client_registry can inject and select a client not present in the BAML files (success path)" do
-    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4")
-    base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
+    base_url = BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4")
 
     client_registry = %{
       primary: "InjectedClient",
@@ -80,11 +74,10 @@ defmodule BamlElixirTest do
 
   @tag :client_registry
   test "client_registry passes clients[].options.headers into the HTTP request" do
-    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4", %{
-      "x-test-header" => "hello-from-elixir"
-    })
-
-    base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
+    base_url =
+      BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4", %{
+        "x-test-header" => "hello-from-elixir"
+      })
 
     client_registry = %{
       primary: "InjectedClient",
@@ -111,8 +104,7 @@ defmodule BamlElixirTest do
 
   @tag :collector
   test "collector usage includes cached_input_tokens from fake server" do
-    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4", %{}, %{cached_tokens: 42})
-    base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
+    base_url = BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4", %{}, %{cached_tokens: 42})
 
     client_registry = %{
       primary: "InjectedClient",
@@ -146,8 +138,7 @@ defmodule BamlElixirTest do
 
   @tag :collector
   test "collector usage returns zero cached_input_tokens when none cached" do
-    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4")
-    base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
+    base_url = BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4")
 
     client_registry = %{
       primary: "InjectedClient",
@@ -580,6 +571,67 @@ defmodule BamlElixirTest do
 
       {:error, message} ->
         raise "Error: #{inspect(message)}"
+    end
+  end
+
+  describe "stream cancellation" do
+    import Mox
+
+    setup [:set_mox_global, :verify_on_exit!]
+
+    setup do
+      Application.put_env(:baml_elixir, :native_module, BamlElixir.NativeMock)
+      on_exit(fn -> Application.delete_env(:baml_elixir, :native_module) end)
+    end
+
+    @tag :stream_cancellation
+    test "killing caller process calls abort_tripwire" do
+      test_pid = self()
+      tripwire_ref = make_ref()
+
+      stub(BamlElixir.NativeMock, :create_tripwire, fn -> tripwire_ref end)
+
+      expect(BamlElixir.NativeMock, :abort_tripwire, fn ^tripwire_ref ->
+        send(test_pid, :abort_called)
+        :ok
+      end)
+
+      stub(BamlElixir.NativeMock, :stream, fn pid,
+                                              ref,
+                                              _tripwire,
+                                              _fn,
+                                              _args,
+                                              _path,
+                                              _collectors,
+                                              _registry,
+                                              _tb ->
+        send(test_pid, :stream_started)
+
+        spawn(fn ->
+          receive do
+            :continue_streaming ->
+              send(pid, {ref, {:partial, "chunk"}})
+              send(pid, {ref, {:done, "result"}})
+          after
+            5000 -> :timeout
+          end
+        end)
+
+        :ok
+      end)
+
+      caller_pid =
+        spawn(fn ->
+          BamlElixir.Client.stream("TestFunction", %{}, fn _ -> :ok end, %{path: "test/baml_src"})
+
+          receive do
+            :stop -> :ok
+          end
+        end)
+
+      assert_receive :stream_started, 1000
+      Process.exit(caller_pid, :kill)
+      assert_receive :abort_called, 1000
     end
   end
 end

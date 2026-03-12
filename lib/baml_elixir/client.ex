@@ -75,7 +75,7 @@ defmodule BamlElixir.Client do
     args = to_map(args)
 
     with {:ok, result} <-
-           BamlElixir.Native.call(function_name, args, path, collectors, client_registry, tb) do
+           native_module().call(function_name, args, path, collectors, client_registry, tb) do
       result =
         if opts[:parse] != false do
           parse_result(result, opts[:prefix], tb)
@@ -103,9 +103,28 @@ defmodule BamlElixir.Client do
   def stream(function_name, args, callback, opts \\ %{}) do
     ref = make_ref()
     args = to_map(args)
+    caller_pid = self()
+
+    native = native_module()
 
     spawn_link(fn ->
-      start_sync_stream(self(), ref, function_name, args, opts)
+      tripwire = native.create_tripwire()
+      stream_worker = self()
+
+      spawn(fn ->
+        caller_ref = Process.monitor(caller_pid)
+        stream_ref = Process.monitor(stream_worker)
+
+        receive do
+          {:DOWN, ^caller_ref, :process, ^caller_pid, _reason} ->
+            native.abort_tripwire(tripwire)
+
+          {:DOWN, ^stream_ref, :process, ^stream_worker, _} ->
+            native.abort_tripwire(tripwire)
+        end
+      end)
+
+      start_sync_stream(self(), ref, function_name, args, tripwire, opts)
       handle_stream_result(ref, callback, opts)
     end)
   end
@@ -167,6 +186,10 @@ defmodule BamlElixir.Client do
     |> :erlang.md5()
   end
 
+  defp native_module do
+    Application.get_env(:baml_elixir, :native_module, BamlElixir.Native)
+  end
+
   # Generate the __mix_recompile__?/0 function that checks if any .baml files have changed
   defp generate_recompile_function(baml_src_path, baml_files) do
     # Create a hash of all BAML files at compile time
@@ -189,14 +212,15 @@ defmodule BamlElixir.Client do
     end
   end
 
-  defp start_sync_stream(pid, ref, function_name, args, opts) do
+  defp start_sync_stream(pid, ref, function_name, args, tripwire, opts) do
     {path, collectors, client_registry, tb} = prepare_opts(opts)
 
     spawn_link(fn ->
       result =
-        BamlElixir.Native.stream(
+        native_module().stream(
           pid,
           ref,
+          tripwire,
           function_name,
           args,
           path,

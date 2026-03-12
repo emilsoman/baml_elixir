@@ -13,3 +13,4 @@ rustler = { version = "0.36.1", default-features = false, features = ["derive", 
 baml-runtime = { path = "baml/engine/baml-runtime", features = ["internal"] }
 baml-types = { path = "baml/engine/baml-lib/baml-types" }
 internal-baml-core = { path = "baml/engine/baml-lib/baml-core" }
+stream-cancel = "0.8.2"

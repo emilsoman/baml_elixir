@@ -32,6 +32,7 @@ defmodule BamlElixir.MixProject do
       {:rustler, "~> 0.36.1", optional: true},
       {:rustler_precompiled, "~> 0.8"},
       {:mox, "~> 1.1", only: :test},
+      {:bypass, "~> 2.1", only: :test},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end

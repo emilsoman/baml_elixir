@@ -5,24 +5,37 @@ use baml_runtime::{BamlRuntime, FunctionResult, RuntimeContextManager, TripWire}
 use baml_types::ir_type::UnionTypeViewGeneric;
 use baml_types::{BamlMap, BamlValue, LiteralValue, TypeIR};
 use rustler::types::atom;
+use stream_cancel::Trigger;
 
 use collector::{FunctionLog, Usage};
-use rustler::{
-    Encoder, Env, Error, LocalPid, MapIterator, NifResult, NifStruct, ResourceArc, Term,
-};
+use rustler::{Encoder, Env, Error, LocalPid, MapIterator, NifResult, Resource, ResourceArc, Term};
 use std::collections::HashMap;
+use std::panic::AssertUnwindSafe;
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 mod atoms {
     rustler::atoms! {
         partial,
         done,
+        ok,
     }
 }
 
 mod collector;
 mod type_builder;
+
+#[rustler::resource_impl()]
+impl Resource for TripWireResource {}
+
+pub struct TripWireResource {
+    trigger: Mutex<Option<Trigger>>,
+    tripwire: AssertUnwindSafe<stream_cancel::Tripwire>,
+}
+
+unsafe impl Send for TripWireResource {}
+unsafe impl Sync for TripWireResource {}
+impl std::panic::RefUnwindSafe for TripWireResource {}
 
 fn term_to_string(term: Term) -> Result<String, Error> {
     if term.is_atom() {
@@ -110,7 +123,10 @@ fn term_to_baml_map(term: Term) -> Result<BamlMap<String, BamlValue>, Error> {
     Ok(map)
 }
 
-fn term_to_client_property(term: Term, name_override: Option<String>) -> Result<ClientProperty, Error> {
+fn term_to_client_property(
+    term: Term,
+    name_override: Option<String>,
+) -> Result<ClientProperty, Error> {
     if !term.is_map() {
         return Err(Error::Term(Box::new("Client must be a map")));
     }
@@ -129,11 +145,10 @@ fn term_to_client_property(term: Term, name_override: Option<String>) -> Result<
             }
             "provider" => {
                 let provider_str = term_to_string(value_term)?;
-                provider = Some(
-                    ClientProvider::from_str(&provider_str).map_err(|e| {
+                provider =
+                    Some(ClientProvider::from_str(&provider_str).map_err(|e| {
                         Error::Term(Box::new(format!("Invalid client provider: {e}")))
-                    })?,
-                );
+                    })?);
             }
             "retry_policy" => {
                 retry_policy = term_to_optional_string(value_term)?;
@@ -146,7 +161,9 @@ fn term_to_client_property(term: Term, name_override: Option<String>) -> Result<
     }
 
     let name = name.ok_or(Error::Term(Box::new("Client missing required key: name")))?;
-    let provider = provider.ok_or(Error::Term(Box::new("Client missing required key: provider")))?;
+    let provider = provider.ok_or(Error::Term(Box::new(
+        "Client missing required key: provider",
+    )))?;
 
     Ok(ClientProperty::new(name, provider, retry_policy, options))
 }
@@ -212,14 +229,6 @@ fn baml_value_to_term<'a>(env: Env<'a>, value: &BamlValue) -> NifResult<Term<'a>
             Ok(result_map)
         }
     }
-}
-
-#[derive(NifStruct)]
-#[module = "BamlElixir.Client"]
-struct Client<'a> {
-    from: String,
-    client_registry: Term<'a>,
-    collectors: Vec<ResourceArc<collector::CollectorResource>>,
 }
 
 fn prepare_request<'a>(
@@ -405,6 +414,7 @@ fn stream<'a>(
     env: Env<'a>,
     pid: Term<'a>,
     reference: Term<'a>,
+    tripwire_resource: Option<ResourceArc<TripWireResource>>,
     function_name: String,
     arguments: Term<'a>,
     path: String,
@@ -432,6 +442,10 @@ fn stream<'a>(
         }
     };
 
+    let tripwire = tripwire_resource
+        .map(|res| TripWire::new(Some(res.tripwire.0.clone())))
+        .unwrap_or_else(|| TripWire::new(None));
+
     let result = runtime.stream_function(
         function_name,
         &params,
@@ -440,8 +454,8 @@ fn stream<'a>(
         client_registry.as_ref(),
         collectors,
         std::env::vars().collect(),
-        TripWire::new(None), // TODO: Add tripwire
-        None,                // tags
+        tripwire,
+        None, // tags
     );
 
     match result {
@@ -710,6 +724,25 @@ fn to_elixir_type<'a>(env: Env<'a>, field_type: &TypeIR) -> Term<'a> {
             panic!("Arrow types are not supported in Elixir")
         }
     }
+}
+
+#[rustler::nif]
+fn create_tripwire() -> ResourceArc<TripWireResource> {
+    let (trigger, tripwire) = stream_cancel::Tripwire::new();
+    ResourceArc::new(TripWireResource {
+        trigger: Mutex::new(Some(trigger)),
+        tripwire: AssertUnwindSafe(tripwire),
+    })
+}
+
+#[rustler::nif]
+fn abort_tripwire(tripwire_res: ResourceArc<TripWireResource>) -> rustler::Atom {
+    if let Ok(mut guard) = tripwire_res.trigger.lock() {
+        if let Some(trigger) = guard.take() {
+            trigger.cancel();
+        }
+    }
+    atoms::ok()
 }
 
 rustler::init!("Elixir.BamlElixir.Native");

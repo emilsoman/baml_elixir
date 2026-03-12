@@ -1,3 +1,3 @@
 ExUnit.start()
 
-Mox.defmock(BamlElixirTest.OpenAIHandlerMock, for: BamlElixirTest.OpenAIHandler)
+Mox.defmock(BamlElixir.NativeMock, for: BamlElixir.NativeBehaviour)
