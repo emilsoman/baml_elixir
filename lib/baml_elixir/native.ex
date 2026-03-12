@@ -7,9 +7,14 @@ defmodule BamlElixir.Native do
     force_build: System.get_env("BAML_ELIXIR_BUILD") in ["1", "true"],
     version: version,
     targets: [
+      # macOS
       "aarch64-apple-darwin",
+      # Linux glibc
       "x86_64-unknown-linux-gnu",
-      "aarch64-unknown-linux-gnu"
+      "aarch64-unknown-linux-gnu",
+      # Linux musl (Alpine)
+      "x86_64-unknown-linux-musl",
+      "aarch64-unknown-linux-musl"
     ]
 
   def call(_function_name, _args, _path, _collectors, _client_registry, _tb),

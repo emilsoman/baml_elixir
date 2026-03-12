@@ -48,7 +48,7 @@ defmodule BamlElixirTest do
 
   @tag :client_registry
   test "client_registry can inject and select a client not present in the BAML files (success path)" do
-    base_url = BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT")
+    base_url = BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4")
 
     client_registry = %{
       primary: "InjectedClient",
@@ -68,14 +68,14 @@ defmodule BamlElixirTest do
 
     # This function declares `client GPT4` in the .baml file, so success here proves
     # `client_registry.primary` overrides the static client selection.
-    assert {:ok, "GPT"} =
+    assert {:ok, "GPT4"} =
              BamlElixirTest.WhichModelUnion.call(%{}, %{client_registry: client_registry})
   end
 
   @tag :client_registry
   test "client_registry passes clients[].options.headers into the HTTP request" do
     base_url =
-      BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT", %{
+      BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4", %{
         "x-test-header" => "hello-from-elixir"
       })
 
@@ -98,8 +98,76 @@ defmodule BamlElixirTest do
       ]
     }
 
-    assert {:ok, "GPT"} =
+    assert {:ok, "GPT4"} =
              BamlElixirTest.WhichModelUnion.call(%{}, %{client_registry: client_registry})
+  end
+
+  @tag :collector
+  test "collector usage includes cached_input_tokens from fake server" do
+    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4", %{}, %{cached_tokens: 42})
+    base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
+
+    client_registry = %{
+      primary: "InjectedClient",
+      clients: [
+        %{
+          name: "InjectedClient",
+          provider: "openai-generic",
+          retry_policy: nil,
+          options: %{
+            base_url: base_url,
+            api_key: "test-key",
+            model: "gpt-4o-mini"
+          }
+        }
+      ]
+    }
+
+    collector = BamlElixir.Collector.new("test-collector")
+
+    assert {:ok, "GPT4"} =
+             BamlElixirTest.WhichModelUnion.call(%{}, %{
+               client_registry: client_registry,
+               collectors: [collector]
+             })
+
+    usage = BamlElixir.Collector.usage(collector)
+    assert usage["input_tokens"] == 1
+    assert usage["output_tokens"] == 1
+    assert usage["cached_input_tokens"] == 42
+  end
+
+  @tag :collector
+  test "collector usage returns zero cached_input_tokens when none cached" do
+    BamlElixirTest.FakeOpenAIServer.expect_chat_completion("GPT4")
+    base_url = BamlElixirTest.FakeOpenAIServer.start_base_url()
+
+    client_registry = %{
+      primary: "InjectedClient",
+      clients: [
+        %{
+          name: "InjectedClient",
+          provider: "openai-generic",
+          retry_policy: nil,
+          options: %{
+            base_url: base_url,
+            api_key: "test-key",
+            model: "gpt-4o-mini"
+          }
+        }
+      ]
+    }
+
+    collector = BamlElixir.Collector.new("test-collector")
+
+    assert {:ok, "GPT4"} =
+             BamlElixirTest.WhichModelUnion.call(%{}, %{
+               client_registry: client_registry,
+               collectors: [collector]
+             })
+
+    usage = BamlElixir.Collector.usage(collector)
+    assert usage["cached_input_tokens"] == 0
   end
 
   test "parses into a struct" do
@@ -270,14 +338,14 @@ defmodule BamlElixirTest do
 
   test "change default model" do
     assert BamlElixirTest.WhichModel.call(%{}, %{llm_client: "GPT4"}) == {:ok, :GPT4oMini}
-    assert BamlElixirTest.WhichModel.call(%{}, %{llm_client: "DeepSeekR1"}) == {:ok, :DeepSeekR1}
+    assert BamlElixirTest.WhichModel.call(%{}, %{llm_client: "Claude"}) == {:ok, :Claude}
   end
 
   test "get union type" do
-    assert BamlElixirTest.WhichModelUnion.call(%{}, %{llm_client: "GPT4"}) == {:ok, "GPT"}
+    assert BamlElixirTest.WhichModelUnion.call(%{}, %{llm_client: "GPT4"}) == {:ok, "GPT4"}
 
-    assert BamlElixirTest.WhichModelUnion.call(%{}, %{llm_client: "DeepSeekR1"}) ==
-             {:ok, "DeepSeek"}
+    assert BamlElixirTest.WhichModelUnion.call(%{}, %{llm_client: "Claude"}) ==
+             {:ok, "Claude"}
   end
 
   test "Error when parsing the output of a function" do
@@ -291,7 +359,7 @@ defmodule BamlElixirTest do
              {:ok, :GPT4oMini}
 
     usage = BamlElixir.Collector.usage(collector)
-    assert usage["input_tokens"] == 33
+    assert usage["input_tokens"] == 30
     assert usage["output_tokens"] > 0
   end
 
@@ -401,6 +469,98 @@ defmodule BamlElixirTest do
                Jane Doe 28 - Guest
                """
              })
+  end
+
+  test "Agent with type builder returns Tool with reasoning and tool (union of BAML tool classes)" do
+    assert {:ok, result} =
+             BamlElixirTest.Agent.call(
+               %{message: "What's the weather in Paris?"},
+               %{tb: build_tool_type(["WeatherTool", "ToNumberTool"])}
+             )
+
+    assert %{
+             tool: %{__baml_class__: "WeatherTool", city: "Paris"},
+             __baml_class__: "Tool",
+             reasoning: _reasoning
+           } = result
+
+    assert {:ok, "error"} =
+             BamlElixirTest.Agent.call(
+               %{message: "What's the weather in Paris?"},
+               %{tb: build_tool_type(["ToNumberTool"])}
+             )
+
+    assert {:ok, result} =
+             BamlElixirTest.Agent.call(
+               %{message: "Convert hundred and one to a number"},
+               %{tb: build_tool_type(["ToNumberTool"])}
+             )
+
+    assert %{
+             tool: %{number: 101, __baml_class__: "ToNumberTool"},
+             __baml_class__: "Tool",
+             reasoning: _reasoning
+           } = result
+  end
+
+  test "Agent with type builder with names returns Tool with reasoning and tool (union of BAML tool classes)" do
+    assert {:ok, result} =
+             BamlElixirTest.Agent.call(
+               %{message: "Convert hundred and one to a number"},
+               %{tb: build_tool_type_with_names(["ToNumberTool"])}
+             )
+
+    assert %{
+             __baml_class__: "Tool",
+             reasoning: _reasoning,
+             tool: %{
+               __baml_class__: "ToolChoice_ToNumberTool",
+               args: %{number: 101, __baml_class__: "ToNumberTool"},
+               name: "ToNumberTool"
+             }
+           } = result
+  end
+
+  defp build_tool_type(tool_names) when is_list(tool_names) do
+    tool_union = %TypeBuilder.Union{
+      types: Enum.map(tool_names, fn name -> %TypeBuilder.Class{name: name} end)
+    }
+
+    [
+      %TypeBuilder.Class{
+        name: "Tool",
+        fields: [
+          %TypeBuilder.Field{name: "tool", type: tool_union}
+        ]
+      }
+    ]
+  end
+
+  defp build_tool_type_with_names(tool_names) when is_list(tool_names) do
+    tool_union = %TypeBuilder.Union{
+      types:
+        Enum.map(tool_names, fn name ->
+          %TypeBuilder.Class{
+            name: "ToolChoice_#{name}",
+            fields: [
+              %TypeBuilder.Field{
+                name: "name",
+                type: %TypeBuilder.Literal{value: name}
+              },
+              %TypeBuilder.Field{name: "args", type: %TypeBuilder.Class{name: name}}
+            ]
+          }
+        end)
+    }
+
+    [
+      %TypeBuilder.Class{
+        name: "Tool",
+        fields: [
+          %TypeBuilder.Field{name: "tool", type: tool_union}
+        ]
+      }
+    ]
   end
 
   defp wait_for_all_messages(messages \\ []) do

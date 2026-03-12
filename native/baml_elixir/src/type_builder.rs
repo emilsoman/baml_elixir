@@ -1,7 +1,7 @@
 use crate::Error;
 use baml_runtime::type_builder::{TypeBuilder, WithMeta};
 use baml_types::{ir_type::UnionConstructor, LiteralValue, TypeIR};
-use rustler::{Env, MapIterator, Term};
+use rustler::{types::atom, Atom, Env, MapIterator, Term};
 
 pub fn parse_type_builder_spec<'a>(
     env: Env<'a>,
@@ -184,7 +184,11 @@ fn parse_enum_value_item<'a>(
                 value_name = Some(term_to_string(value_term)?);
             }
             "description" => {
-                description = Some(term_to_string(value_term)?);
+                // Treat `nil` as absence of description
+                if !(value_term.is_atom() && value_term.decode::<Atom>().ok() == Some(atom::nil()))
+                {
+                    description = Some(term_to_string(value_term)?);
+                }
             }
             _ => {}
         }
@@ -230,7 +234,11 @@ fn parse_field_item<'a>(
                 field_type = Some(value_term);
             }
             "description" => {
-                description = Some(term_to_string(value_term)?);
+                // Treat `nil` as absence of description
+                if !(value_term.is_atom() && value_term.decode::<Atom>().ok() == Some(atom::nil()))
+                {
+                    description = Some(term_to_string(value_term)?);
+                }
             }
             _ => {}
         }
@@ -451,6 +459,34 @@ fn parse_field_type<'a>(
                     return Ok(TypeIR::r#enum(&name));
                 }
                 Err(Error::Term(Box::new("Could not extract enum name")))
+            }
+            Some("Elixir.BamlElixir.TypeBuilder.Literal") => {
+                let iter =
+                    MapIterator::new(term).ok_or(Error::Term(Box::new("Invalid literal map")))?;
+                let mut value_term = None;
+
+                for (key_term, v_term) in iter {
+                    let key = term_to_string(key_term)?;
+                    if key == "value" {
+                        value_term = Some(v_term);
+                        break;
+                    }
+                }
+
+                let value_term =
+                    value_term.ok_or(Error::Term(Box::new("Literal missing value field")))?;
+
+                if let Ok(string_value) = value_term.decode::<String>() {
+                    Ok(TypeIR::literal(LiteralValue::String(string_value)))
+                } else if let Ok(int_value) = value_term.decode::<i64>() {
+                    Ok(TypeIR::literal(LiteralValue::Int(int_value)))
+                } else if let Ok(bool_value) = value_term.decode::<bool>() {
+                    Ok(TypeIR::literal(LiteralValue::Bool(bool_value)))
+                } else {
+                    Err(Error::Term(Box::new(
+                        "Literal value must be a string, integer, or boolean",
+                    )))
+                }
             }
             _ => Err(Error::Term(Box::new(format!(
                 "Unsupported TypeBuilder struct: {:?}",

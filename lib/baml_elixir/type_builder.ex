@@ -16,11 +16,11 @@ defmodule BamlElixir.TypeBuilder do
   end
 
   defmodule Union do
-    defstruct [:name, :types]
+    defstruct [:types]
   end
 
   defmodule Literal do
-    defstruct [:name, :value]
+    defstruct [:value]
   end
 
   defmodule Map do
